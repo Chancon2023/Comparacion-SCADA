@@ -52,7 +52,7 @@ export default function RadarDetail() {
                 const disabled = !active && selected.length >= 3;
                 return (
                   <button key={n}
-                    className={\`btn \${active? "active": ""}\`}
+                    className={`btn ${active ? "active" : ""}`}
                     onClick={()=>{
                       setSelected(prev => {
                         const has = prev.includes(n);
