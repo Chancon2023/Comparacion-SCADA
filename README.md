@@ -1,2 +1,0 @@
-# Comparacion-SCADA
-Comparacion SCADA
