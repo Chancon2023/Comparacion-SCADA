@@ -1,25 +1,59 @@
 {
   "generated_from": [
-    "Comparacion_SCADA_Estructura_Completa.xlsx: Cuadro Comparativo SCADA",
-    "cuadro comparativo scada.xlsx: Sheet1/Sheet2"
+    "Comparacion_SCADA_Estructura_Completa.xlsx",
+    "cuadro comparativo scada.xlsx"
   ],
   "softwares": {
-    "Zenon COPADATA": {
+    "EcoStruxure™ Grid Operation ADMS Schenider": {
       "description": "",
       "pros": [],
-      "cons": [],
+      "cons": [
+        "Casos de Éxito: No se cuenta con informacion a nival nacional. "
+      ],
       "features": {
-        "--- Diseño de Arquitectura ---": "Comentarios",
-        "Interfaces de usuario y versatilidad": "A comprobar interfaz de usuario",
-        "Arquitectura": "A comprobar su funcionamiento en redes PRP y HSR",
-        "Redundancia": "A comprobar funcionalidad de redundancia",
-        "Escalabilidad": "A comprobar",
-        "Compatibilidad": "A comprobar compatiblidad Ed1 y Ed2.1 del Estandar IEC61850.",
-        "Costo": "Se espera cotizacion del proveedor para ver costos",
-        "Protocolos soportados": "A comprobar su compatibilidad, no posee OPC.\n\n",
-        "Facilidad de uso": "A comprobar mediante un Demo",
-        "Seguridad": "A comprobar medidad de Ciberseguridad según Nerc-CIP",
-        "Actualizaciones": "A comprobar."
+        "--- Diseño de Arquitectura ---": "- Interfaz Común para Todas las Aplicaciones\n- Panel de Control Unificado (Single Pane of Glass HMI).\n- Gestión de Conmutación Integrada.\n- Configuración de Modelos Templatizados.\n- Análisis de Protocolos Incorporado-\n- Operaciones Móviles en Tiempo Real.\n-Notificaciones Proactivas de Apagones.",
+        "Arquitectura": "- Arquitectura Ethernet Conmutada\n- Arquitectura Ethernet Segregada\n- Protocolos de Redundancia (HSR y PRP)",
+        "Redundancia": "- Redundancia de Servidores\n- Redundancia de Datos.\n- Redundancia de Protocolos de Comunicación",
+        "Escalabilidad": "- Arquitectura Modular y Flexible\n- Soporte para Pequeñas y Medianas Utilities\n- Despliegue en la Nube y en Sitio.\n- Integración de Nuevos Protocolos y Dispositivos.\n- Capacidades de Monitoreo y Control Avanzadas.",
+        "Compatibilidad": "Soporte para Protocolos Estándar: EcoStruxure™ Grid Operation es compatible con una amplia gama de protocolos de comunicación estándar de la industria, inlcuyendo:\nIEC 61850: Utilizado para la automatización de subestaciones.\nDNP3 (Distributed Network Protocol): Amplia aplicación en la industria de servicios públicos para comunicación SCADA.\nIEC 101/104: Protocolos utilizados para telecontrol en sistemas de automatización de energía.\nModbus: Protocolo de comunicación serial para dispositivos industriales.\nICCP (Inter-Control Center Communications Protocol): Para comunicación entre centros de control.",
+        "Cantidad de puntos soportados": "Se desconoce la informacion, a comprobar.",
+        "Librerias electricas": "A comprobar, debe poseer librerias bajo los estandares IEEE e IEC para el desarrollo de HMI.",
+        "Costo": "Descripción: La implementación de EcoStruxure™ Grid Operation puede implicar un costo inicial significativo debido a la adquisición de hardware y software avanzado. Sin embargo, se espera que los ahorros a largo plazo en eficiencia operativa y reducción de costos de mantenimiento compensen la inversión inicial.\nBeneficio: Aunque el costo inicial puede ser alto, la reducción de costos operativos a largo plazo y la mejora en la eficiencia pueden justificar la inversión.",
+        "Tipo de cliente": "Pequeñas y medianas empresas de distribucion eléctrica, grandes empresas de distribucion, empresas de transmision electrica, empresas de generacion electrica.",
+        "Protocolos soportados": "IEC 101/104/61850, ICCP, DNP3, Modbus",
+        "Casos de Éxito": "No se cuenta con informacion a nival nacional. ",
+        "Facilidad de uso": "Descripción: La interfaz de usuario de EcoStruxure™ Grid Operation está diseñada para ser intuitiva y consistente, con un panel de control unificado (Single Pane of Glass HMI) que proporciona una vista consolidada de todas las operaciones y datos relevantes. Incluye herramientas para la gestión de conmutaciones, análisis de protocolos y operaciones móviles en tiempo real.\nBeneficio: Facilita el uso del sistema y mejora la eficiencia operativa, permitiendo a los operadores realizar sus tareas de manera más rápida y con menos errores.",
+        "Cumplimiento Norma Tencnica NTSyCS": "Se debe realizar laboratorio para comprobar los requerimientos del Coordinador Electrico Nacional, en primera instancia se de comprobar la converison de puntos simples a dobles manteniendo la estampa de tiempo, la capacidad de realizar agupamiento de puntos de control y proteccion acorde a los requerimiento de la normativa tecnica, esto con el fin de reportar por ICCP hacia el Coordinador, este requito va de la mano de mantener la estampa de tiempo del origen en todo momento.",
+        "Programacion de Script": "Se debe comprobar que tipo de lenguaje de programacion soporta para hacer calculados.",
+        "Seguridad": "Descripción: EcoStruxure™ Grid Operation cumple con estándares de ciberseguridad como IEC 62351, lo que asegura la protección de datos y la integridad del sistema. Implementa medidas de seguridad robustas, incluyendo autenticación, control de acceso basado en roles (RBAC) y encriptación.\n\nBeneficio: Proporciona un entorno seguro para la operación de la red, protegiendo contra amenazas cibernéticas y asegurando el cumplimiento regulatorio.",
+        "Actualizaciones": "Descripción: EcoStruxure™ Grid Operation recibe actualizaciones regulares de software para mejorar las funcionalidades, la seguridad y la compatibilidad con nuevos dispositivos y protocolos. Estas actualizaciones son parte del compromiso de Schneider Electric con la mejora continua del producto.\n\nBeneficio: Mantiene el sistema actualizado con las últimas innovaciones y estándares de seguridad, asegurando que las utilities puedan beneficiarse de las mejoras tecnológicas y enfrentar nuevos desafíos operativos con herramientas avanzadas.",
+        "Soporte de Fabrica": "Cadena de soporte técnico:\n\nEl canal de atención de primer nivel (L1) cumple una función principalmente de filtrado inicial, derivando la mayoría de los incidentes hacia los niveles superiores (L2 y L3).\nEste enfoque evidencia áreas de mejora en las capacidades de L1 para abordar directamente diagnósticos y correcciones relacionadas con configuraciones avanzadas y fallos de software.\n\nEn consecuencia, el proceso de resolución de incidentes puede extenderse entre 1 y 2 semanas en promedio, lo cual representa un desafío para la continuidad operativa de sistemas SCADA en producción, donde los tiempos de respuesta son críticos.\n\nDocumentación técnica:\n\nLa documentación oficial disponible presenta oportunidades de fortalecimiento, particularmente en lo relacionado con parámetros avanzados, lineamientos de buenas prácticas para la puesta en marcha, y ejemplos de integración práctica.\n\nLa falta de acceso a estos contenidos específicos fomenta una dependencia mayor de la experiencia compartida entre especialistas certificados (EcoExperts), lo que puede impactar la trazabilidad y estandarización de las soluciones implementadas.\n\nAdemás, parte de la información requerida no se encuentra disponible de forma directa en los portales de soporte, aumentando la necesidad de consultas al canal de asistencia y potencialmente extendiendo los plazos de atención.\n\nImpacto en la operación:\n\nLa combinación de soporte técnico reactivo y documentación parcial puede traducirse en mayores riesgos de paradas no programadas, así como en demoras durante las etapas de puesta en servicio y mantenimiento correctivo."
+      }
+    },
+    "MicroScada X HITACHI ENERGY": {
+      "description": "",
+      "pros": [],
+      "cons": [
+        "Redundancia: Modos de Redundancia:\nModo Dominante: Roles primarios y de respaldo definidos.\nModo No Dominante: Capacidad de intercambio de roles entre servidores.\nModo Clasificado: Switches inteligentes basados en el estado de la conexión y otros datos.\n- Redundancia de Comunicaciones (HSR y PRP).​"
+      ],
+      "features": {
+        "--- Diseño de Arquitectura ---": "Terminal Server Client (RDP).\nzenon Webclient.\nHTML5 Client.\nInterfaz HMI/SCADA avanzada: Visualización en tiempo real, control y análisis de datos.\nMulti-touch: Proyectos con pantallas de multitáctil​​​​.",
+        "Arquitectura": "Arquitectura Soportada:\nCliente-Servidor: Distribución de funciones y datos entre servidores y clientes.\nArquitectura Redundante: Soporte para múltiples modos de redundancia (dominante, no dominante y clasificado).\nDistribuida: Múltiples ingenieros pueden trabajar simultáneamente en diferentes partes de un proyecto​​​​.\nIntegración en la nube y IIoT: Conectividad con servicios como Microsoft Azure​​.",
+        "Redundancia": "Modos de Redundancia:\nModo Dominante: Roles primarios y de respaldo definidos.\nModo No Dominante: Capacidad de intercambio de roles entre servidores.\nModo Clasificado: Switches inteligentes basados en el estado de la conexión y otros datos.\n- Redundancia de Comunicaciones (HSR y PRP).​",
+        "Escalabilidad": "Capacidad de Escalado:\nDesde pequeñas instalaciones hasta grandes infraestructuras.\nFlexibilidad para crecer con las necesidades del proyecto.\nCapacidad para ejecutar múltiples proyectos simultáneamente en zenon Runtime​​​",
+        "Compatibilidad": "Compatibilidad Extensa:\nProtocolos estándar de la industria: IEC 61850, IEC 60870, DNP3, Modbus, OPC UA, entre otros.\nSoporte para múltiples dispositivos y sistemas: Amplia gama de drivers y protocolos desarrollados internamente​​​​..",
+        "Cantidad de puntos soportados": "Mas de 10.000 puntos ",
+        "Librerias electricas": "Posee una amplia gama de librerias electricas ya sean IEC o IEEE, facil de ceacion de nuvas pantallas HMI, Pop -Up son customizables acorde a los requerimientos del cliente.",
+        "Costo": "Optimización de Costos:\nReducción del costo total de propiedad (TCO): Gracias a la modularidad, mantenimiento automatizado y compatibilidad hacia atrás.\nIncremento del retorno de inversión (ROI): Por la arquitectura flexible y la facilidad de integración​​.",
+        "Tipo de cliente": "Empresas de Generación, Transmisión y Distribución de Energía, Transporte Público y Ferrocarriles, Plantas Hidroeléctricas, Parques solares, Mineria.",
+        "Protocolos soportados": "Principales Protocolos:\nIEC 61850 (Edición 2): Cliente/servidor y GOOSE.\nIEC 60870-5-101/103/104.\nDNP3: Maestro y esclavo.\nModbus (RTU y TCP).\nOPC UA.\nOtros: BACnet, SQL driver, Siemens S7, Mitsubishi, Omron, Phoenix Contact, Profibus, entre otros​​​​.",
+        "Casos de Éxito": "Gran éxito en empresas del Holdin BHP, destaca proyectos en Minera Escondida operada por BHP.\n\nProyectos en parques solares pertenecintes a Enel Green Power.",
+        "Facilidad de uso": "Interfaz de Usuario Intuitiva:\nEditor de zenon: Entorno de ingeniería gráfica intuitiva con herramientas fáciles de localizar.\nBibliotecas de símbolos y proyectos globales: Facilitan la configuración rápida de proyectos​​.\nFuncionalidades listas para usar: Gestión de alarmas, procesamiento de comandos, visualización de diagramas de línea única​​​​.",
+        "Cumplimiento Norma Tencnica NTSyCS": "Cumple con todos los equisitios impuestos por la NTSyCS y de los requisitos del Coordinador Electrico Nacional.\nEs posible convertir puntos simples a dobles manteniendo la estampa de tiempo, al igual que las señales agrupadas. ",
+        "Programacion de Script": "Lenguaje propietarios SCIL para el desarrollo de Scripts",
+        "Seguridad": "Medidas de Seguridad:\nAutenticación y encriptación: Soporte para IEC 61850, DNP3 v2 y v5, TLS para IEC 60870-104 y DNP3.\nAdministración de usuarios basada en roles: Active Directory.\nProtección contra ciberataques: Cumplimiento con IEC 62443, archivos firmados, encriptación de datos​​​​.",
+        "Actualizaciones": "Actualizaciones Continuas:\nImplementación sin tiempo de inactividad: Actualizaciones del sistema sin necesidad de parar la operación.\nCompatibilidad hacia atrás: Las actualizaciones aseguran que las versiones anteriores sigan siendo funcionales y compatibles​​.",
+        "Soporte de Fabrica": "Tiempo de respuesta inmediato – la mesa de servicio trabaja en modo tiempo real; los incidentes de configuración o fallos de software se resuelven sin colas ni escaladas intermedias.\n\nEficiencia técnica – el primer nivel cuenta con las competencias necesarias para cerrar la mayoría de los tickets en la primera llamada o sesión remota.\n\nAtención en español – todo el soporte se presta íntegramente en nuestro idioma, eliminando barreras lingüísticas y acelerando la resolución.\n\nDocumentación — manuales completos y bien estructurados, suficientes para ejecutar puestas en marcha complejas y resolver incidencias sin depender exclusivamente del soporte."
       }
     },
     "ZEE600 ABB (Zenon)": {
@@ -38,6 +72,48 @@
         "Facilidad de uso": "Programacion de script amigables, conversion de puntos simples a dobles manteniendo la estampa de tiempos sin problemas, escalabilidad y/o mejora de los pup-up relacionados con los comandos.\nFacil integracion de nuevas señales.\nConfiguracion amigables y facil para los comandos en IEC104, DNP3.0 e IEC61850.",
         "Seguridad": "Implementacion de las reglas NERC-CIP de Ciberseguridad.",
         "Actualizaciones": "Implementacion regular de nuevos hostfix"
+      }
+    },
+    "EPAS Gateway Schneider": {
+      "description": "",
+      "pros": [],
+      "cons": [],
+      "features": {
+        "--- Diseño de Arquitectura ---": "Interfaz Web: Acceso basado en navegador para control y monitoreo.\nHMI (Human-Machine Interface): Personalizable, con soporte para gráficos, listas de alarmas y eventos, y visualización de tendencias.\nAplicaciones Móviles: Acceso remoto a través de dispositivos móviles.\nInterfaz de Configuración: Herramientas para la personalización y configuración del sistema según las necesidades del operador.",
+        "Arquitectura": "Solución de Automatización Básica: Compacta y mejorable, adecuada para subtransmisión y distribución.\nSolución de Automatización Mejorada: Con HMIs de estación redundantes y una pasarela industrial independiente.\nSolución de Automatización Avanzada: Completamente redundante para control local y remoto en transmisiones de alto voltaje y distribución compleja.\nNivel de Proceso, Bahía y Estación: Integración desde dispositivos de campo hasta el control centralizado.",
+        "Redundancia": "Redundancia de Comunicación: Soporte para PRP y HSR para asegurar operación continua en caso de fallos de enlace.\nRedundancia de Servidores: Servidores y estaciones de trabajo redundantes para alta disponibilidad.\nRedundancia de Comunicación de Proceso: Capacidad de recuperación instantánea en caso de fallos de comunicación.",
+        "Escalabilidad": "Desde Sistemas Pequeños a Grandes: Adaptable desde aplicaciones compactas hasta sistemas de control jerárquico de gran escala.\nModularidad: Posibilidad de añadir funcionalidades como control, redundancia, y reporting a medida que se necesiten.\nVirtualización: Soporte para servidores virtuales para mejorar la eficiencia y escalabilidad.",
+        "Compatibilidad": "Compatibilidad con Versiones Anteriores: Total compatibilidad hacia atrás, permitiendo la actualización sin reingeniería completa.\nInteroperabilidad: Integración con una variedad de dispositivos y sistemas mediante protocolos estándar.\nSoporte de Terceros: Compatibilidad con software y hardware de terceros para asegurar una implementación flexible.",
+        "Cantidad de puntos soportados": "Mas de 10.000 puntos",
+        "Librerias electricas": "Posee una amplia gama de librerias electricas ya sean IEC o IEEE, facil de ceacion de nuvas pantallas HMI, Pop -Up son customizables acorde a los requerimientos del cliente.",
+        "Costo": "Implementación Inicial: Costos altos debido a la complejidad y necesidad de personal capacitado.\nMantenimiento: Costos continuos asociados a la gestión de ciberseguridad, actualizaciones y mantenimiento del sistema.\nRetorno de Inversión: A largo plazo, las eficiencias operativas y la mejora en la fiabilidad pueden justificar la inversión inicial.",
+        "Tipo de cliente": "Energias Renovables, Industria Minera, Empresas de Transmision y Generacion eléctrica, Industra de procesos.",
+        "Protocolos soportados": "IEC 61850: Edición 1 y Edición 2, incluyendo GOOSE y SV (Sampled Values).\nIEC 60870-5-101/104: Para comunicación de telecontrol.\nDNP3: Soporta comunicación serie y TCP/IP.\nModbus TCP/RTU: Integración con dispositivos industriales.\nOPC: OPC DA y OPC UA para interoperabilidad con diversos sistemas y dispositivos.\nICCP: Para comunicación entre centros de control.\nLON: Utilizado en automatización de edificios y sistemas industriales.\nPRP y HSR: Protocolos de redundancia para asegurar alta disponibilidad y comunicación continua.",
+        "Casos de Éxito": "Parques Eolicos y parque solares a lo largo de todo Chile, proyectos mineros como Quebrada Blanca fase 2 y Nuevo Nivel Mina de Teniente CODELCO, entre otros.",
+        "Facilidad de uso": "Interfaz Amigable: Diseñada para facilitar la navegación y el control con una interfaz unificada.\nPersonalización: Herramientas para adaptar el HMI y otras interfaces según las necesidades específicas del operador.\nDocumentación y Soporte: Extensa documentación y soporte para facilitar la configuración y operación.",
+        "Cumplimiento Norma Tencnica NTSyCS": "Cumple con todos los equisitios impuestos por la NTSyCS y de los requisitos del Coordinador Electrico Nacional.\nEs posible convertir puntos simples a dobles manteniendo la estampa de tiempo, al igual que las señales agrupadas. ",
+        "Programacion de Script": "Lenguaje propietarios SCIL para el desarrollo de Scripts",
+        "Seguridad": "Cifrado de Comunicaciones: Uso de VPN y TLS para proteger los datos en tránsito.\nAutenticación y Autorización de Usuarios: Gestión de cuentas y roles con autenticación multifactor.\nProtección Contra Malware: Integración con antivirus y sistemas de protección contra intrusiones.\nRegistro de Eventos: Auditoría y monitorización continua de actividades relevantes de seguridad.",
+        "Actualizaciones": "Gestión de Parches: Implementación regular de parches de seguridad y actualizaciones de software.\nCompatibilidad Continua: Asegurar que las actualizaciones no afecten la compatibilidad con sistemas existentes.\nMejoras de Funcionalidad: Actualizaciones periódicas para incorporar nuevas funcionalidades y mejoras de seguridad.",
+        "Soporte de Fabrica": "Plazo de respuesta — SLA efectivo de 1 a 2 días hábiles, sujeto a la disponibilidad del equipo de fábrica.\n\nIdioma — atención íntegramente en inglés; exige dominio técnico del idioma por parte del cliente.\n\nCalidad de la solución — las réplicas son precisas, enfocadas en la causa raíz y acompañadas de recomendaciones de configuración.\n\nDocumentación — manuales completos y bien estructurados, suficientes para ejecutar puestas en marcha complejas y resolver incidencias sin depender exclusivamente del soporte."
+      }
+    },
+    "Zenon COPADATA": {
+      "description": "",
+      "pros": [],
+      "cons": [],
+      "features": {
+        "--- Diseño de Arquitectura ---": "Comentarios",
+        "Interfaces de usuario y versatilidad": "A comprobar interfaz de usuario",
+        "Arquitectura": "A comprobar su funcionamiento en redes PRP y HSR",
+        "Redundancia": "A comprobar funcionalidad de redundancia",
+        "Escalabilidad": "A comprobar",
+        "Compatibilidad": "A comprobar compatiblidad Ed1 y Ed2.1 del Estandar IEC61850.",
+        "Costo": "Se espera cotizacion del proveedor para ver costos",
+        "Protocolos soportados": "A comprobar su compatibilidad, no posee OPC.\n\n",
+        "Facilidad de uso": "A comprobar mediante un Demo",
+        "Seguridad": "A comprobar medidad de Ciberseguridad según Nerc-CIP",
+        "Actualizaciones": "A comprobar."
       }
     },
     "Siemens Spectrum Power": {
@@ -97,7 +173,9 @@
     "Power Operation Schneider": {
       "description": "",
       "pros": [],
-      "cons": [],
+      "cons": [
+        "Facilidad de uso: HMI amigable con el operador, ademas es amigable para trabajar las bases de datos y diseños de HMI.\nNo es necesario un software externo para realizar la base de datos, todas las modificaciones de base de datos se realizan dentro del mismo entorno, lo cual conlleva a menores tiempos de desarrollo en ingenieria. "
+      ],
       "features": {
         "--- Diseño de Arquitectura ---": "Comentarios",
         "Interfaces de usuario y versatilidad": "Alta disponibilidad en escritorios remotos (RDP) intregrados en clientes mineros.",
@@ -112,28 +190,50 @@
         "Actualizaciones": "a Comprobar "
       }
     },
-    "EPAS Gateway Schneider": {
-      "description": "",
-      "pros": [],
+    "zenon Energy Edition (NCS)": {
+      "description": "Control de subestaciones (como HMI local) y como Centro de Control, automatización de redes de media/baja tensión, integración con operaciones industriales, integracion con DERs, generacion, redes de transmision y distribucion.",
+      "pros": [
+        "Adaptación a minería: ✔️ Alta: integración con MES, mantenimiento, energía y seguridad.",
+        "Escalabilidad: ✔️ Muy escalable, desde subestación única hasta redes completas.",
+        "Integración de subestaciones: ✔️ Usando Protocolos de comunicacion Nativa, desarrollados en casa (IEC 61850, IEC 60870, DNP3, Modbus, etc.).",
+        "Interfaz de usuario (HMI/SCADA): ✔️ Nativa tanto para workstations como clientes web. Opcion HTML5, multilenguaje, multitáctil, personalizable, ergonómico.",
+        "Funcionalidades clave (nativas): ✔️ GIS, Historian, Estimador de estado, Flujo de carga, Topología, Interlocking, Alarmas.",
+        "Arquitectura de la aplicación Control Center: ✔️ Todo en un solo software: SCADA/DMS/Historian/Visualización/Comunicaciones. Compatible con configuracion distribuida",
+        "Gestión de operaciones mineras: ✔️ Alta integración industrial.",
+        "Configuración y mantenimiento: ✔️ Intuitivo, parametrizable, sin codificación, uso de plantillas. Facil de mantener sin interrumpir operaciones."
+      ],
       "cons": [],
       "features": {
-        "--- Diseño de Arquitectura ---": "Interfaz Web: Acceso basado en navegador para control y monitoreo.\nHMI (Human-Machine Interface): Personalizable, con soporte para gráficos, listas de alarmas y eventos, y visualización de tendencias.\nAplicaciones Móviles: Acceso remoto a través de dispositivos móviles.\nInterfaz de Configuración: Herramientas para la personalización y configuración del sistema según las necesidades del operador.",
-        "Arquitectura": "Solución de Automatización Básica: Compacta y mejorable, adecuada para subtransmisión y distribución.\nSolución de Automatización Mejorada: Con HMIs de estación redundantes y una pasarela industrial independiente.\nSolución de Automatización Avanzada: Completamente redundante para control local y remoto en transmisiones de alto voltaje y distribución compleja.\nNivel de Proceso, Bahía y Estación: Integración desde dispositivos de campo hasta el control centralizado.",
-        "Redundancia": "Redundancia de Comunicación: Soporte para PRP y HSR para asegurar operación continua en caso de fallos de enlace.\nRedundancia de Servidores: Servidores y estaciones de trabajo redundantes para alta disponibilidad.\nRedundancia de Comunicación de Proceso: Capacidad de recuperación instantánea en caso de fallos de comunicación.",
-        "Escalabilidad": "Desde Sistemas Pequeños a Grandes: Adaptable desde aplicaciones compactas hasta sistemas de control jerárquico de gran escala.\nModularidad: Posibilidad de añadir funcionalidades como control, redundancia, y reporting a medida que se necesiten.\nVirtualización: Soporte para servidores virtuales para mejorar la eficiencia y escalabilidad.",
-        "Compatibilidad": "Compatibilidad con Versiones Anteriores: Total compatibilidad hacia atrás, permitiendo la actualización sin reingeniería completa.\nInteroperabilidad: Integración con una variedad de dispositivos y sistemas mediante protocolos estándar.\nSoporte de Terceros: Compatibilidad con software y hardware de terceros para asegurar una implementación flexible.",
-        "Cantidad de puntos soportados": "Mas de 10.000 puntos",
-        "Librerias electricas": "Posee una amplia gama de librerias electricas ya sean IEC o IEEE, facil de ceacion de nuvas pantallas HMI, Pop -Up son customizables acorde a los requerimientos del cliente.",
-        "Costo": "Implementación Inicial: Costos altos debido a la complejidad y necesidad de personal capacitado.\nMantenimiento: Costos continuos asociados a la gestión de ciberseguridad, actualizaciones y mantenimiento del sistema.\nRetorno de Inversión: A largo plazo, las eficiencias operativas y la mejora en la fiabilidad pueden justificar la inversión inicial.",
-        "Tipo de cliente": "Energias Renovables, Industria Minera, Empresas de Transmision y Generacion eléctrica, Industra de procesos.",
-        "Protocolos soportados": "IEC 61850: Edición 1 y Edición 2, incluyendo GOOSE y SV (Sampled Values).\nIEC 60870-5-101/104: Para comunicación de telecontrol.\nDNP3: Soporta comunicación serie y TCP/IP.\nModbus TCP/RTU: Integración con dispositivos industriales.\nOPC: OPC DA y OPC UA para interoperabilidad con diversos sistemas y dispositivos.\nICCP: Para comunicación entre centros de control.\nLON: Utilizado en automatización de edificios y sistemas industriales.\nPRP y HSR: Protocolos de redundancia para asegurar alta disponibilidad y comunicación continua.",
-        "Casos de Éxito": "Parques Eolicos y parque solares a lo largo de todo Chile, proyectos mineros como Quebrada Blanca fase 2 y Nuevo Nivel Mina de Teniente CODELCO, entre otros.",
-        "Facilidad de uso": "Interfaz Amigable: Diseñada para facilitar la navegación y el control con una interfaz unificada.\nPersonalización: Herramientas para adaptar el HMI y otras interfaces según las necesidades específicas del operador.\nDocumentación y Soporte: Extensa documentación y soporte para facilitar la configuración y operación.",
-        "Cumplimiento Norma Tencnica NTSyCS": "Cumple con todos los equisitios impuestos por la NTSyCS y de los requisitos del Coordinador Electrico Nacional.\nEs posible convertir puntos simples a dobles manteniendo la estampa de tiempo, al igual que las señales agrupadas. ",
-        "Programacion de Script": "Lenguaje propietarios SCIL para el desarrollo de Scripts",
-        "Seguridad": "Cifrado de Comunicaciones: Uso de VPN y TLS para proteger los datos en tránsito.\nAutenticación y Autorización de Usuarios: Gestión de cuentas y roles con autenticación multifactor.\nProtección Contra Malware: Integración con antivirus y sistemas de protección contra intrusiones.\nRegistro de Eventos: Auditoría y monitorización continua de actividades relevantes de seguridad.",
-        "Actualizaciones": "Gestión de Parches: Implementación regular de parches de seguridad y actualizaciones de software.\nCompatibilidad Continua: Asegurar que las actualizaciones no afecten la compatibilidad con sistemas existentes.\nMejoras de Funcionalidad: Actualizaciones periódicas para incorporar nuevas funcionalidades y mejoras de seguridad.",
-        "Soporte de Fabrica": "Plazo de respuesta — SLA efectivo de 1 a 2 días hábiles, sujeto a la disponibilidad del equipo de fábrica.\n\nIdioma — atención íntegramente en inglés; exige dominio técnico del idioma por parte del cliente.\n\nCalidad de la solución — las réplicas son precisas, enfocadas en la causa raíz y acompañadas de recomendaciones de configuración.\n\nDocumentación — manuales completos y bien estructurados, suficientes para ejecutar puestas en marcha complejas y resolver incidencias sin depender exclusivamente del soporte."
+        "Enfoque principal": "Control de subestaciones (como HMI local) y como Centro de Control, automatización de redes de media/baja tensión, integración con operaciones industriales, integracion con DERs, generacion, redes de transmision y distribucion.",
+        "Adaptación a minería": "✔️ Alta: integración con MES, mantenimiento, energía y seguridad.",
+        "Escalabilidad": "✔️ Muy escalable, desde subestación única hasta redes completas.",
+        "Integración de subestaciones": "✔️ Usando Protocolos de comunicacion Nativa, desarrollados en casa (IEC 61850, IEC 60870, DNP3, Modbus, etc.).",
+        "Interfaz de usuario (HMI/SCADA)": "✔️ Nativa tanto para workstations como clientes web. Opcion HTML5, multilenguaje, multitáctil, personalizable, ergonómico.",
+        "Funcionalidades clave (nativas)": "✔️ GIS, Historian, Estimador de estado, Flujo de carga, Topología, Interlocking, Alarmas.",
+        "Arquitectura de la aplicación Control Center": "✔️ Todo en un solo software: SCADA/DMS/Historian/Visualización/Comunicaciones. Compatible con configuracion distribuida",
+        "Gestión de operaciones mineras": "✔️ Alta integración industrial.",
+        "Configuración y mantenimiento": "✔️ Intuitivo, parametrizable, sin codificación, uso de plantillas. Facil de mantener sin interrumpir operaciones.",
+        "Redundancia y disponibilidad": "✔️Hot-standby, Circular redundancy, alta disponibilidad.",
+        "Ciberseguridad (IEC 62443, AD)": "✔️ Cumple IEC 62443, Active Directory, cifrado seguro TSL",
+        "Compatibilidad con antivirus": "✔️ Agnóstico a la marca del antivirus.",
+        "Plantillas y objetos reutilizables": "✔️ Smart Objects, plantillas, mini-proyectos reutilizables.",
+        "Compatibilidad con hardware": "✔️ Agnóstico de hardware.",
+        "Acceso remoto/web": "✔️ Nativo: licencias web de acceso remoto,HTML5, estaciones de trabajo, Dashboards en la nube",
+        "Soporte local en Chile": "✔️ Soporte Tecnico Local e Integradores certificados- partners COPA-DATA.",
+        "Compatibilidad entre versiones": "✔️ Garantizada con versiones futuras y anteriores.",
+        "Tiempo estimado de implementación": "⏱️ Medio-corto (proyectos modulares).",
+        "Costo total de propiedad (TCO)": "💲 Bajo a medio: licencias escalables, ingeniería eficiente.",
+        "Ventajas distintivas": "🟢 Plataforma unificada, funcionalidades nativas, acceso web, bajo TCO, agnóstico en hardware y antivirus, compatibilidad entre versiones, fácil de usar y mantener.",
+        "Primary Focus": "Substation control, MV/LV network automation, integration with industrial operations",
+        "Mining Adaptation": "✔️ High: tailored for industrial environments, customizable HMIs",
+        "Scalability": "✔️ Scalable from one substation to entire grid",
+        "Substation Integration": "✔️ Native support (IEC 61850, 60870-5-101/104, DNP3, Modbus)",
+        "User Interface (HMI/SCADA)": "✔️ Customizable, HTML5, multilingual, multitouch",
+        "Key Built-in Features": "SCADA, Historian, Alarms, Interlocking, Command Sequencer, Topology, Load Flow, State Estimator, GIS",
+        "Mining Operations Integration": "✔️ Strong MES, ERP, energy, maintenance integration",
+        "Configuration & Maintenance": "✔️ Parameter-based (no coding), low TCO",
+        "Redundancy & Availability": "✔️ Full server redundancy, circular redundancy",
+        "Cybersecurity (IEC 62443, AD)": "✔️ Full: IEC 62443, Active Directory, encryption"
       }
     },
     "Hitachi Network Manager": {
@@ -188,100 +288,6 @@
         "Configuration & Maintenance": "⚠️ Requires specialized services",
         "Redundancy & Availability": "✔️ High availability",
         "Cybersecurity (IEC 62443, AD)": "✔️ Robust security"
-      }
-    },
-    "zenon Energy Edition (NCS)": {
-      "description": "Control de subestaciones (como HMI local) y como Centro de Control, automatización de redes de media/baja tensión, integración con operaciones industriales, integracion con DERs, generacion, redes de transmision y distribucion.",
-      "pros": [
-        "Adaptación a minería: ✔️ Alta: integración con MES, mantenimiento, energía y seguridad.",
-        "Escalabilidad: ✔️ Muy escalable, desde subestación única hasta redes completas.",
-        "Integración de subestaciones: ✔️ Usando Protocolos de comunicacion Nativa, desarrollados en casa (IEC 61850, IEC 60870, DNP3, Modbus, etc.).",
-        "Interfaz de usuario (HMI/SCADA): ✔️ Nativa tanto para workstations como clientes web. Opcion HTML5, multilenguaje, multitáctil, personalizable, ergonómico.",
-        "Funcionalidades clave (nativas): ✔️ GIS, Historian, Estimador de estado, Flujo de carga, Topología, Interlocking, Alarmas.",
-        "Arquitectura de la aplicación Control Center: ✔️ Todo en un solo software: SCADA/DMS/Historian/Visualización/Comunicaciones. Compatible con configuracion distribuida",
-        "Gestión de operaciones mineras: ✔️ Alta integración industrial.",
-        "Configuración y mantenimiento: ✔️ Intuitivo, parametrizable, sin codificación, uso de plantillas. Facil de mantener sin interrumpir operaciones."
-      ],
-      "cons": [],
-      "features": {
-        "Enfoque principal": "Control de subestaciones (como HMI local) y como Centro de Control, automatización de redes de media/baja tensión, integración con operaciones industriales, integracion con DERs, generacion, redes de transmision y distribucion.",
-        "Adaptación a minería": "✔️ Alta: integración con MES, mantenimiento, energía y seguridad.",
-        "Escalabilidad": "✔️ Muy escalable, desde subestación única hasta redes completas.",
-        "Integración de subestaciones": "✔️ Usando Protocolos de comunicacion Nativa, desarrollados en casa (IEC 61850, IEC 60870, DNP3, Modbus, etc.).",
-        "Interfaz de usuario (HMI/SCADA)": "✔️ Nativa tanto para workstations como clientes web. Opcion HTML5, multilenguaje, multitáctil, personalizable, ergonómico.",
-        "Funcionalidades clave (nativas)": "✔️ GIS, Historian, Estimador de estado, Flujo de carga, Topología, Interlocking, Alarmas.",
-        "Arquitectura de la aplicación Control Center": "✔️ Todo en un solo software: SCADA/DMS/Historian/Visualización/Comunicaciones. Compatible con configuracion distribuida",
-        "Gestión de operaciones mineras": "✔️ Alta integración industrial.",
-        "Configuración y mantenimiento": "✔️ Intuitivo, parametrizable, sin codificación, uso de plantillas. Facil de mantener sin interrumpir operaciones.",
-        "Redundancia y disponibilidad": "✔️Hot-standby, Circular redundancy, alta disponibilidad.",
-        "Ciberseguridad (IEC 62443, AD)": "✔️ Cumple IEC 62443, Active Directory, cifrado seguro TSL",
-        "Compatibilidad con antivirus": "✔️ Agnóstico a la marca del antivirus.",
-        "Plantillas y objetos reutilizables": "✔️ Smart Objects, plantillas, mini-proyectos reutilizables.",
-        "Compatibilidad con hardware": "✔️ Agnóstico de hardware.",
-        "Acceso remoto/web": "✔️ Nativo: licencias web de acceso remoto,HTML5, estaciones de trabajo, Dashboards en la nube",
-        "Soporte local en Chile": "✔️ Soporte Tecnico Local e Integradores certificados- partners COPA-DATA.",
-        "Compatibilidad entre versiones": "✔️ Garantizada con versiones futuras y anteriores.",
-        "Tiempo estimado de implementación": "⏱️ Medio-corto (proyectos modulares).",
-        "Costo total de propiedad (TCO)": "💲 Bajo a medio: licencias escalables, ingeniería eficiente.",
-        "Ventajas distintivas": "🟢 Plataforma unificada, funcionalidades nativas, acceso web, bajo TCO, agnóstico en hardware y antivirus, compatibilidad entre versiones, fácil de usar y mantener.",
-        "Primary Focus": "Substation control, MV/LV network automation, integration with industrial operations",
-        "Mining Adaptation": "✔️ High: tailored for industrial environments, customizable HMIs",
-        "Scalability": "✔️ Scalable from one substation to entire grid",
-        "Substation Integration": "✔️ Native support (IEC 61850, 60870-5-101/104, DNP3, Modbus)",
-        "User Interface (HMI/SCADA)": "✔️ Customizable, HTML5, multilingual, multitouch",
-        "Key Built-in Features": "SCADA, Historian, Alarms, Interlocking, Command Sequencer, Topology, Load Flow, State Estimator, GIS",
-        "Mining Operations Integration": "✔️ Strong MES, ERP, energy, maintenance integration",
-        "Configuration & Maintenance": "✔️ Parameter-based (no coding), low TCO",
-        "Redundancy & Availability": "✔️ Full server redundancy, circular redundancy",
-        "Cybersecurity (IEC 62443, AD)": "✔️ Full: IEC 62443, Active Directory, encryption"
-      }
-    },
-    "EcoStruxure™ Grid Operation ADMS Schenider": {
-      "description": "",
-      "pros": [],
-      "cons": [],
-      "features": {
-        "--- Diseño de Arquitectura ---": "- Interfaz Común para Todas las Aplicaciones\n- Panel de Control Unificado (Single Pane of Glass HMI).\n- Gestión de Conmutación Integrada.\n- Configuración de Modelos Templatizados.\n- Análisis de Protocolos Incorporado-\n- Operaciones Móviles en Tiempo Real.\n-Notificaciones Proactivas de Apagones.",
-        "Arquitectura": "- Arquitectura Ethernet Conmutada\n- Arquitectura Ethernet Segregada\n- Protocolos de Redundancia (HSR y PRP)",
-        "Redundancia": "- Redundancia de Servidores\n- Redundancia de Datos.\n- Redundancia de Protocolos de Comunicación",
-        "Escalabilidad": "- Arquitectura Modular y Flexible\n- Soporte para Pequeñas y Medianas Utilities\n- Despliegue en la Nube y en Sitio.\n- Integración de Nuevos Protocolos y Dispositivos.\n- Capacidades de Monitoreo y Control Avanzadas.",
-        "Compatibilidad": "Soporte para Protocolos Estándar: EcoStruxure™ Grid Operation es compatible con una amplia gama de protocolos de comunicación estándar de la industria, inlcuyendo:\nIEC 61850: Utilizado para la automatización de subestaciones.\nDNP3 (Distributed Network Protocol): Amplia aplicación en la industria de servicios públicos para comunicación SCADA.\nIEC 101/104: Protocolos utilizados para telecontrol en sistemas de automatización de energía.\nModbus: Protocolo de comunicación serial para dispositivos industriales.\nICCP (Inter-Control Center Communications Protocol): Para comunicación entre centros de control.",
-        "Cantidad de puntos soportados": "Se desconoce la informacion, a comprobar.",
-        "Librerias electricas": "A comprobar, debe poseer librerias bajo los estandares IEEE e IEC para el desarrollo de HMI.",
-        "Costo": "Descripción: La implementación de EcoStruxure™ Grid Operation puede implicar un costo inicial significativo debido a la adquisición de hardware y software avanzado. Sin embargo, se espera que los ahorros a largo plazo en eficiencia operativa y reducción de costos de mantenimiento compensen la inversión inicial.\nBeneficio: Aunque el costo inicial puede ser alto, la reducción de costos operativos a largo plazo y la mejora en la eficiencia pueden justificar la inversión.",
-        "Tipo de cliente": "Pequeñas y medianas empresas de distribucion eléctrica, grandes empresas de distribucion, empresas de transmision electrica, empresas de generacion electrica.",
-        "Protocolos soportados": "IEC 101/104/61850, ICCP, DNP3, Modbus",
-        "Casos de Éxito": "No se cuenta con informacion a nival nacional. ",
-        "Facilidad de uso": "Descripción: La interfaz de usuario de EcoStruxure™ Grid Operation está diseñada para ser intuitiva y consistente, con un panel de control unificado (Single Pane of Glass HMI) que proporciona una vista consolidada de todas las operaciones y datos relevantes. Incluye herramientas para la gestión de conmutaciones, análisis de protocolos y operaciones móviles en tiempo real.\nBeneficio: Facilita el uso del sistema y mejora la eficiencia operativa, permitiendo a los operadores realizar sus tareas de manera más rápida y con menos errores.",
-        "Cumplimiento Norma Tencnica NTSyCS": "Se debe realizar laboratorio para comprobar los requerimientos del Coordinador Electrico Nacional, en primera instancia se de comprobar la converison de puntos simples a dobles manteniendo la estampa de tiempo, la capacidad de realizar agupamiento de puntos de control y proteccion acorde a los requerimiento de la normativa tecnica, esto con el fin de reportar por ICCP hacia el Coordinador, este requito va de la mano de mantener la estampa de tiempo del origen en todo momento.",
-        "Programacion de Script": "Se debe comprobar que tipo de lenguaje de programacion soporta para hacer calculados.",
-        "Seguridad": "Descripción: EcoStruxure™ Grid Operation cumple con estándares de ciberseguridad como IEC 62351, lo que asegura la protección de datos y la integridad del sistema. Implementa medidas de seguridad robustas, incluyendo autenticación, control de acceso basado en roles (RBAC) y encriptación.\n\nBeneficio: Proporciona un entorno seguro para la operación de la red, protegiendo contra amenazas cibernéticas y asegurando el cumplimiento regulatorio.",
-        "Actualizaciones": "Descripción: EcoStruxure™ Grid Operation recibe actualizaciones regulares de software para mejorar las funcionalidades, la seguridad y la compatibilidad con nuevos dispositivos y protocolos. Estas actualizaciones son parte del compromiso de Schneider Electric con la mejora continua del producto.\n\nBeneficio: Mantiene el sistema actualizado con las últimas innovaciones y estándares de seguridad, asegurando que las utilities puedan beneficiarse de las mejoras tecnológicas y enfrentar nuevos desafíos operativos con herramientas avanzadas.",
-        "Soporte de Fabrica": "Cadena de soporte técnico:\n\nEl canal de atención de primer nivel (L1) cumple una función principalmente de filtrado inicial, derivando la mayoría de los incidentes hacia los niveles superiores (L2 y L3).\nEste enfoque evidencia áreas de mejora en las capacidades de L1 para abordar directamente diagnósticos y correcciones relacionadas con configuraciones avanzadas y fallos de software.\n\nEn consecuencia, el proceso de resolución de incidentes puede extenderse entre 1 y 2 semanas en promedio, lo cual representa un desafío para la continuidad operativa de sistemas SCADA en producción, donde los tiempos de respuesta son críticos.\n\nDocumentación técnica:\n\nLa documentación oficial disponible presenta oportunidades de fortalecimiento, particularmente en lo relacionado con parámetros avanzados, lineamientos de buenas prácticas para la puesta en marcha, y ejemplos de integración práctica.\n\nLa falta de acceso a estos contenidos específicos fomenta una dependencia mayor de la experiencia compartida entre especialistas certificados (EcoExperts), lo que puede impactar la trazabilidad y estandarización de las soluciones implementadas.\n\nAdemás, parte de la información requerida no se encuentra disponible de forma directa en los portales de soporte, aumentando la necesidad de consultas al canal de asistencia y potencialmente extendiendo los plazos de atención.\n\nImpacto en la operación:\n\nLa combinación de soporte técnico reactivo y documentación parcial puede traducirse en mayores riesgos de paradas no programadas, así como en demoras durante las etapas de puesta en servicio y mantenimiento correctivo."
-      }
-    },
-    "MicroScada X HITACHI ENERGY": {
-      "description": "",
-      "pros": [],
-      "cons": [],
-      "features": {
-        "--- Diseño de Arquitectura ---": "Terminal Server Client (RDP).\nzenon Webclient.\nHTML5 Client.\nInterfaz HMI/SCADA avanzada: Visualización en tiempo real, control y análisis de datos.\nMulti-touch: Proyectos con pantallas de multitáctil​​​​.",
-        "Arquitectura": "Arquitectura Soportada:\nCliente-Servidor: Distribución de funciones y datos entre servidores y clientes.\nArquitectura Redundante: Soporte para múltiples modos de redundancia (dominante, no dominante y clasificado).\nDistribuida: Múltiples ingenieros pueden trabajar simultáneamente en diferentes partes de un proyecto​​​​.\nIntegración en la nube y IIoT: Conectividad con servicios como Microsoft Azure​​.",
-        "Redundancia": "Modos de Redundancia:\nModo Dominante: Roles primarios y de respaldo definidos.\nModo No Dominante: Capacidad de intercambio de roles entre servidores.\nModo Clasificado: Switches inteligentes basados en el estado de la conexión y otros datos.\n- Redundancia de Comunicaciones (HSR y PRP).​",
-        "Escalabilidad": "Capacidad de Escalado:\nDesde pequeñas instalaciones hasta grandes infraestructuras.\nFlexibilidad para crecer con las necesidades del proyecto.\nCapacidad para ejecutar múltiples proyectos simultáneamente en zenon Runtime​​​",
-        "Compatibilidad": "Compatibilidad Extensa:\nProtocolos estándar de la industria: IEC 61850, IEC 60870, DNP3, Modbus, OPC UA, entre otros.\nSoporte para múltiples dispositivos y sistemas: Amplia gama de drivers y protocolos desarrollados internamente​​​​..",
-        "Cantidad de puntos soportados": "Mas de 10.000 puntos ",
-        "Librerias electricas": "Posee una amplia gama de librerias electricas ya sean IEC o IEEE, facil de ceacion de nuvas pantallas HMI, Pop -Up son customizables acorde a los requerimientos del cliente.",
-        "Costo": "Optimización de Costos:\nReducción del costo total de propiedad (TCO): Gracias a la modularidad, mantenimiento automatizado y compatibilidad hacia atrás.\nIncremento del retorno de inversión (ROI): Por la arquitectura flexible y la facilidad de integración​​.",
-        "Tipo de cliente": "Empresas de Generación, Transmisión y Distribución de Energía, Transporte Público y Ferrocarriles, Plantas Hidroeléctricas, Parques solares, Mineria.",
-        "Protocolos soportados": "Principales Protocolos:\nIEC 61850 (Edición 2): Cliente/servidor y GOOSE.\nIEC 60870-5-101/103/104.\nDNP3: Maestro y esclavo.\nModbus (RTU y TCP).\nOPC UA.\nOtros: BACnet, SQL driver, Siemens S7, Mitsubishi, Omron, Phoenix Contact, Profibus, entre otros​​​​.",
-        "Casos de Éxito": "Gran éxito en empresas del Holdin BHP, destaca proyectos en Minera Escondida operada por BHP.\n\nProyectos en parques solares pertenecintes a Enel Green Power.",
-        "Facilidad de uso": "Interfaz de Usuario Intuitiva:\nEditor de zenon: Entorno de ingeniería gráfica intuitiva con herramientas fáciles de localizar.\nBibliotecas de símbolos y proyectos globales: Facilitan la configuración rápida de proyectos​​.\nFuncionalidades listas para usar: Gestión de alarmas, procesamiento de comandos, visualización de diagramas de línea única​​​​.",
-        "Cumplimiento Norma Tencnica NTSyCS": "Cumple con todos los equisitios impuestos por la NTSyCS y de los requisitos del Coordinador Electrico Nacional.\nEs posible convertir puntos simples a dobles manteniendo la estampa de tiempo, al igual que las señales agrupadas. ",
-        "Programacion de Script": "Lenguaje propietarios SCIL para el desarrollo de Scripts",
-        "Seguridad": "Medidas de Seguridad:\nAutenticación y encriptación: Soporte para IEC 61850, DNP3 v2 y v5, TLS para IEC 60870-104 y DNP3.\nAdministración de usuarios basada en roles: Active Directory.\nProtección contra ciberataques: Cumplimiento con IEC 62443, archivos firmados, encriptación de datos​​​​.",
-        "Actualizaciones": "Actualizaciones Continuas:\nImplementación sin tiempo de inactividad: Actualizaciones del sistema sin necesidad de parar la operación.\nCompatibilidad hacia atrás: Las actualizaciones aseguran que las versiones anteriores sigan siendo funcionales y compatibles​​.",
-        "Soporte de Fabrica": "Tiempo de respuesta inmediato – la mesa de servicio trabaja en modo tiempo real; los incidentes de configuración o fallos de software se resuelven sin colas ni escaladas intermedias.\n\nEficiencia técnica – el primer nivel cuenta con las competencias necesarias para cerrar la mayoría de los tickets en la primera llamada o sesión remota.\n\nAtención en español – todo el soporte se presta íntegramente en nuestro idioma, eliminando barreras lingüísticas y acelerando la resolución.\n\nDocumentación — manuales completos y bien estructurados, suficientes para ejecutar puestas en marcha complejas y resolver incidencias sin depender exclusivamente del soporte."
       }
     }
   }
