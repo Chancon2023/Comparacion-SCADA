@@ -7,10 +7,9 @@ export default {
         foreground: "hsl(222.2 47.4% 11.2%)",
         muted: "hsl(215 20.2% 65.1%)",
         card: "hsl(210 40% 98%)",
-        ring: "hsl(215 20.2% 65.1%)",
       },
       boxShadow: {
-        smooth: "0 10px 25px rgba(2,6,23,0.08)",
+        smooth: "0 12px 28px rgba(2,6,23,0.10)",
       },
       borderRadius: {
         xl: "1rem",
