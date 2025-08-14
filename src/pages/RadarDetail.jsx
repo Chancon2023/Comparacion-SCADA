@@ -1,56 +1,121 @@
-// src/pages/RadarDetail.jsx
-import React, { useMemo, useState } from "react";
-import dataset from "../data/scada_dataset.json";
-import { prepareData } from "../components/utils";
-import { Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { COLORS, scoreValue, prepareData } from "../components/utils";
+import supabase from "../lib/supabase";
 
-const ALL_FEATURES = (dataset.features || []);
+const CRITICAL = ["Ciberseguridad", "Redundancia", "Protocolos", "Compatibilidad con hardware"];
 
 export default function RadarDetail() {
-  const [selected, setSelected] = useState((dataset.platforms || []).slice(0, 3).map(p => p.name));
-  const [features, setFeatures] = useState(ALL_FEATURES);
+  const [data, setData] = useState(null);
+  const [selected, setSelected] = useState([]);
+  const [onlyCritical, setOnlyCritical] = useState(false);
+  const [weights, setWeights] = useState(null);
 
-  const rows = useMemo(() => prepareData(dataset, selected), [selected]);
+  // dataset: intenta primero Supabase (tabla datasets, col json 'payload'), si falla usa /data/scada_dataset.json
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        let payload = null;
+        if (supabase) {
+          const { data: rows, error } = await supabase
+            .from("datasets")
+            .select("payload")
+            .eq("name", "scada_dataset")
+            .limit(1)
+            .maybeSingle();
+          if (!error && rows && rows.payload) {
+            payload = rows.payload;
+          }
+        }
+        if (!payload) {
+          const res = await fetch("/data/scada_dataset.json", { cache: "no-store" });
+          if (res.ok) payload = await res.json();
+        }
+        if (!cancelled) setData(prepareData(payload));
+      } catch (e) {
+        console.error("[RadarDetail] Carga dataset:", e);
+        if (!cancelled) setData(prepareData(null));
+      }
+    })();
+    return () => (cancelled = true);
+  }, []);
+
+  // pesos (Supabase tabla weights)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (supabase) {
+          const { data: rows, error } = await supabase.from("weights").select("*").limit(1).maybeSingle();
+          if (!error && rows) {
+            setWeights(rows);
+          }
+        }
+      } catch (e) {
+        console.warn("[RadarDetail] No se pudieron cargar pesos:", e);
+      }
+    })();
+  }, []);
+
+  const features = useMemo(() => {
+    if (!data) return [];
+    const feats = data.features.map(f => f.name);
+    return onlyCritical ? feats.filter(n => CRITICAL.some(c => n.toLowerCase().includes(c.toLowerCase()))) : feats;
+  }, [data, onlyCritical]);
+
+  const chartData = useMemo(() => {
+    if (!data || !data.platforms) return [];
+    const chosen = selected.length ? selected : data.platforms.slice(0,3).map(p => p.name);
+    return chosen.map((name, idx) => {
+      const platform = data.platforms.find(p => p.name === name);
+      const entry = { subject: name, fullMark: 100, fill: COLORS[idx % COLORS.length] };
+      (features || []).forEach(featName => {
+        const raw = platform?.scores?.[featName] ?? 0;
+        const w = weights?.[featName] ?? 1;
+        entry[featName] = scoreValue(raw) * w;
+      });
+      return entry;
+    });
+  }, [data, features, selected, weights]);
+
+  if (!data) return <div className="p-6">Cargando…</div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl md:text-3xl font-semibold">Radar detallado</h1>
-        <Link to="/" className="rounded-lg px-4 py-2 bg-gray-200 hover:bg-gray-300">← Volver</Link>
-      </div>
-
-      <p className="text-sm text-gray-600 mb-4">
-        Selecciona hasta 3 plataformas para comparar (dataset mínimo de ejemplo incluido).
-      </p>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        {(dataset.platforms || []).map(p => {
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {(data.platforms || []).map(p => {
           const active = selected.includes(p.name);
           return (
             <button
               key={p.name}
+              className={"px-3 py-1 rounded-full border " + (active ? "bg-blue-600 text-white" : "bg-white")}
               onClick={() => {
-                setSelected(prev => {
-                  if (prev.includes(p.name)) return prev.filter(x => x !== p.name);
-                  if (prev.length >= 3) return [...prev.slice(1), p.name];
-                  return [...prev, p.name];
-                });
+                setSelected(prev => active ? prev.filter(x => x !== p.name) : [...prev, p.name].slice(-3));
               }}
-              className={`px-3 py-1 rounded-full border ${active ? "bg-black text-white" : "bg-white"}`}
             >
               {p.name}
             </button>
           );
         })}
+        <label className="ml-auto flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={onlyCritical} onChange={e => setOnlyCritical(e.target.checked)} />
+          Solo ítems críticos
+        </label>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow">
-        <pre className="text-xs overflow-auto">
-{JSON.stringify(rows.slice(0, 5), null, 2)}
-        </pre>
-        <p className="text-xs text-gray-500 mt-2">
-          (Este mock imprime las primeras filas calculadas. Sustituye por tu componente de Radar real.)
-        </p>
+      <div className="h-[520px] w-full bg-white rounded-2xl shadow p-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={chartData}>
+            <PolarGrid />
+            <PolarAngleAxis dataKey="subject" />
+            <PolarRadiusAxis angle={30} domain={[0, 100]} />
+            {chartData.map((_, idx) => (
+              <Radar key={idx} dataKey={features[idx % features.length]} stroke={COLORS[idx % COLORS.length]} fill={COLORS[idx % COLORS.length]} fillOpacity={0.35} />
+            ))}
+            <Tooltip />
+            <Legend />
+          </RadarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

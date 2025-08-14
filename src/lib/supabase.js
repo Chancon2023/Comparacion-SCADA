@@ -1,40 +1,18 @@
-// src/lib/supabase.js
-// Cliente Supabase sin imports (usa UMD cargado en index.html).
-// Si las env vars faltan o el script no se cargó, devolvemos un "fake client" que evita crasheos.
+import { createClient } from "@supabase/supabase-js";
 
-const URL = import.meta?.env?.VITE_SUPABASE_URL;
-const KEY = import.meta?.env?.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-function createFakeClient() {
-  const warn = () => console.warn("[supabase] no configurado (usando fake client)");
-  return {
-    from() {
-      warn();
-      return {
-        select: async () => ({ data: null, error: { message: "supabase not configured" } }),
-        upsert: async () => ({ data: null, error: { message: "supabase not configured" } }),
-        insert: async () => ({ data: null, error: { message: "supabase not configured" } }),
-        update: async () => ({ data: null, error: { message: "supabase not configured" } }),
-        delete: async () => ({ data: null, error: { message: "supabase not configured" } }),
-        eq() { return this; },
-        order() { return this; },
-        limit() { return this; },
-      };
-    },
-    auth: { getUser: async () => ({ data: { user: null }, error: null }) },
-  };
-}
-
-let client = createFakeClient();
-
+let supabase = null;
 try {
-  if (window?.supabase && URL && KEY) {
-    client = window.supabase.createClient(URL, KEY);
+  if (url && anon) {
+    supabase = createClient(url, anon, { auth: { persistSession: false } });
   } else {
-    console.warn("[supabase] UMD no cargado o URL/KEY no definidas");
+    console.warn("[supabase] Variables no definidas, funcionando en modo local.");
   }
 } catch (e) {
-  console.error("[supabase] error inicializando:", e);
+  console.error("[supabase] Error creando cliente:", e);
+  supabase = null;
 }
 
-export default client;
+export default supabase;
