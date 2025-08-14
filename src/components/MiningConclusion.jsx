@@ -1,7 +1,7 @@
 // src/components/MiningConclusion.jsx
-import React, { useRef } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import React, { useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function MiningConclusion() {
   const ref = useRef(null);
@@ -9,14 +9,9 @@ export default function MiningConclusion() {
   const exportPDF = async () => {
     const node = ref.current;
     if (!node) return;
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-    });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+    const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const imgWidth = pageWidth;
@@ -25,12 +20,12 @@ export default function MiningConclusion() {
     let y = 0;
     let remaining = imgHeight;
     while (remaining > 0) {
-      pdf.addImage(imgData, "PNG", 0, 0 - y, imgWidth, imgHeight);
+      pdf.addImage(imgData, 'PNG', 0, 0 - y, imgWidth, imgHeight);
       remaining -= pageHeight;
       if (remaining > 0) pdf.addPage();
       y += pageHeight;
     }
-    pdf.save("conclusion-mineria.pdf");
+    pdf.save('conclusion-mineria.pdf');
   };
 
   return (
@@ -43,30 +38,34 @@ export default function MiningConclusion() {
           onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
         >
+          {/* ícono simple en SVG inline (sin dependencias) */}
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M12 16l4-5h-3V4h-2v7H8l4 5z"></path>
+            <path d="M20 18H4v2h16v-2z"></path>
+          </svg>
           Exportar PDF
         </button>
       </div>
-      <div
-        ref={ref}
-        className="bg-white rounded-2xl shadow p-6 md:p-8 leading-relaxed prose prose-slate max-w-none"
-      >
+
+      <div ref={ref} className="bg-white rounded-2xl shadow p-6 md:p-8 leading-relaxed max-w-none">
         <p>
           <strong>zenon Energy Edition</strong> como <em>Network Control System</em> es la opción más adecuada
           para un centro de control minero debido a:
         </p>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Plataforma unificada (SCADA, DMS, GIS, Historian y más).</li>
-          <li>Funcionalidades clave nativas (GIS, estimador de estado, etc.).</li>
-          <li>Compatibilidad entre versiones que reduce costos de migración.</li>
-          <li>Acceso remoto y web nativo.</li>
-          <li>Agnosticismo de hardware y antivirus.</li>
-          <li>Soporte local en Chile con integradores certificados.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-3">
+          <li>Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos de integración.</li>
+          <li>Funcionalidades clave nativas, como GIS y estimador de estado, que en otras soluciones requieren módulos adicionales o integraciones externas.</li>
+          <li>Compatibilidad garantizada entre versiones, asegurando la continuidad operativa y reduciendo los costos de migración.</li>
+          <li>Acceso remoto y web nativo, facilitando la supervisión y el control desde diferentes ubicaciones.</li>
+          <li>Agnosticismo de hardware y antivirus, ofreciendo flexibilidad en la elección de infraestructura y soluciones de seguridad.</li>
+          <li>Soporte local en Chile a través de integradores certificados, asegurando una implementación y mantenimiento eficientes.</li>
         </ul>
+
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900">
           <div className="font-medium mb-1">Nota de versiones ABB ZEE600 / SEE00</div>
           <p>
             ZEE600 (SEE00) de ABB suele operar una versión por detrás de zenon; por ejemplo, si zenon está en v15,
-            ABB suele estar en v14. Validar roadmap de versiones con el proveedor.
+            ABB suele estar en v14. Recomendación: validar el roadmap de versiones con el proveedor.
           </p>
         </div>
       </div>
