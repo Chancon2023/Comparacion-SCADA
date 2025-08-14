@@ -1,4 +1,5 @@
 // src/pages/Ranking.jsx
+import MiningConclusion from "../components/MiningConclusion";
 import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import { fetchWeights, fetchReviews } from '../lib/supabase.js';
