@@ -1,0 +1,45 @@
+{
+  "platforms": [
+    {
+      "name": "zenon Energy Edition (NCS)",
+      "scores": {
+        "Ciberseguridad": 95,
+        "Redundancia": 90,
+        "Protocolos": 95,
+        "Compatibilidad con hardware": 90
+      }
+    },
+    {
+      "name": "Hitachi Network Manager",
+      "scores": {
+        "Ciberseguridad": 85,
+        "Redundancia": 85,
+        "Protocolos": 80,
+        "Compatibilidad con hardware": 70
+      }
+    },
+    {
+      "name": "Siemens Spectrum Power",
+      "scores": {
+        "Ciberseguridad": 88,
+        "Redundancia": 90,
+        "Protocolos": 88,
+        "Compatibilidad con hardware": 60
+      }
+    }
+  ],
+  "features": [
+    {
+      "name": "Ciberseguridad"
+    },
+    {
+      "name": "Redundancia"
+    },
+    {
+      "name": "Protocolos"
+    },
+    {
+      "name": "Compatibilidad con hardware"
+    }
+  ]
+}
