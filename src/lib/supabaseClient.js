@@ -1,11 +1,27 @@
 // src/lib/supabaseClient.js
-// Reutilizable en todo el proyecto. No expone claves en el bundle si usas envs en Netlify.
-// Requiere las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(url, key, {
-  auth: { persistSession: false },
-});
+// Fail-soft: if envs are missing, export a dummy client that throws on use
+let supabase = null;
+if (url && anon) {
+  supabase = createClient(url, anon, {
+    auth: { persistSession: false },
+  });
+} else {
+  supabase = {
+    from() {
+      return {
+        select() {
+          throw new Error(
+            "[supabaseClient] Faltan variables de entorno VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY."
+          );
+        },
+      };
+    },
+  };
+}
+
+export default supabase;
