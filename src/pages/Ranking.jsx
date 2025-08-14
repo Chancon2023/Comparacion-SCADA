@@ -6,7 +6,7 @@ import { fetchWeights, fetchReviews } from '../lib/supabase.js';
 import { scoreValue } from '../components/utils.js';
 
 const DATA_URLS = ['/data/scada_dataset.json', '/scada_dataset.json'];
-
+<MiningConclusion />
 async function loadDataset() {
   for (const url of DATA_URLS) {
     try {
