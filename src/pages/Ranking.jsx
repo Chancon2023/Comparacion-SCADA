@@ -1,129 +1,133 @@
 // src/pages/Ranking.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import supabase from "../lib/supabaseClient";
-import { useLiveWeights } from "../hooks/useLiveWeights";
-import ReviewBadge from "../components/ReviewBadge";
-import MiningConclusion from "../components/MiningConclusion";
+import React, { useEffect, useMemo, useState } from 'react';
+import Navbar from '../components/Navbar.jsx';
+import { fetchWeights, fetchReviews } from '../lib/supabase.js';
+import { scoreValue } from '../components/utils.js';
 
-// Ajusta esta ruta a tu dataset local si difiere:
-import baseData from "../data/scada_dataset.json";
+const DATA_URLS = ['/data/scada_dataset.json', '/scada_dataset.json'];
 
-const POSITIVE = new Set(["ok", "si", "yes", "true"]);
-const NEUTRAL = new Set(["medio", "media", "warn", "?", "parcial"]);
-const NEGATIVE = new Set(["no", "false"]);
-
-// heurística simple para mapear un item de feature a score
-function statusToScore(status) {
-  if (!status && status !== 0) return 0;
-  const s = String(status).toLowerCase().trim();
-  if (POSITIVE.has(s)) return 1;
-  if (NEUTRAL.has(s)) return 0.5;
-  if (NEGATIVE.has(s)) return 0;
-  // si viene numérico 0..1 lo usamos
-  const n = Number(s);
-  if (!Number.isNaN(n)) return Math.max(0, Math.min(1, n));
-  return 0.5;
-}
-
-// clasificador por nombre para aplicar pesos
-function classifyWeightKey(featureName) {
-  const s = (featureName || "").toLowerCase();
-  if (s.includes("seguridad") || s.includes("iec 62443") || s.includes("ciber")) return "seguridad";
-  if (s.includes("redund")) return "redundancia";
-  if (s.includes("integrac") || s.includes("protocolo") || s.includes("iec 61850") || s.includes("dnp")) return "integracion";
-  return null; // sin peso especial
-}
-
-function computeScoreForPlatform(p, weights) {
-  // Se espera que `p.features` sea [{ name, status }, ...].
-  const feats = Array.isArray(p?.features) ? p.features : [];
-  if (!feats.length) return 0;
-  let total = 0;
-  let count = 0;
-  for (const f of feats) {
-    const base = statusToScore(f.status);
-    const key = classifyWeightKey(f.name);
-    const w = key ? (weights?.[key] ?? 1) : 1;
-    total += base * w;
-    count += w;
+async function loadDataset() {
+  for (const url of DATA_URLS) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) return await res.json();
+    } catch (e) {}
   }
-  return count ? (100 * total) / count : 0;
+  console.warn('No dataset JSON found in /data/ or root public.');
+  return { platforms: [], features: [] };
+}
+
+function computeScore(p, features, weights) {
+  let total = 0, max = 0;
+  features.forEach(f => {
+    const w = (weights && Number(weights[f])) || 1;
+    const v = scoreValue(p.features?.[f]); // 0..2
+    total += v * w;
+    max += 2 * w;
+  });
+  const pct = max ? (total / max) * 100 : 0;
+  return { raw: total, max, pct: Math.round(pct * 10) / 10 };
 }
 
 export default function Ranking() {
-  const { weights } = useLiveWeights();
-  const [reviews, setReviews] = useState({}); // { [software]: { pros, cons, notes } }
-  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [dataset, setDataset] = useState({ platforms: [], features: [] });
+  const [weights, setWeights] = useState(null);
+  const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadReviews() {
-      try {
-        const { data, error } = await supabase
-          .from("reviews")
-          .select("software,pros,cons,notes,updated_at");
-        if (error) throw error;
-        const map = {};
-        for (const r of data || []) {
-          map[r.software] = { pros: r.pros || "", cons: r.cons || "", notes: r.notes || "" };
-        }
-        if (mounted) setReviews(map);
-      } catch (err) {
-        console.warn("[Ranking] No se pudieron cargar reseñas:", err?.message || err);
-      } finally {
-        if (mounted) setLoadingReviews(false);
-      }
-    }
-    loadReviews();
-    return () => { mounted = false; };
+    (async () => {
+      const ds = await loadDataset();
+      setDataset(ds);
+      const [w, r] = await Promise.all([fetchWeights(), fetchReviews()]);
+      if (w) setWeights(w);
+      if (r?.length) setReviews(r);
+    })();
   }, []);
 
-  const scored = useMemo(() => {
-    return (baseData.platforms || []).map((p) => ({
-      ...p,
-      score: computeScoreForPlatform(p, weights),
-    })).sort((a, b) => b.score - a.score);
-  }, [weights]);
+  const features = useMemo(() => {
+    const f = Array.isArray(dataset.features) && dataset.features.length
+      ? dataset.features
+      : Object.keys(dataset.platforms?.[0]?.features || {});
+    return f || [];
+  }, [dataset]);
+
+  const rows = useMemo(() => {
+    return dataset.platforms.map(p => {
+      const s = computeScore(p, features, weights);
+      // merge reviews from DB
+      const db = reviews.find(r => r.platform?.toLowerCase() === p.name?.toLowerCase());
+      const pros = (p.pros || []).concat(db?.pros || []);
+      const cons = (p.cons || []).concat(db?.cons || []);
+      return { ...p, score: s, pros, cons, source_url: db?.source_url };
+    }).sort((a, b) => b.score.pct - a.score.pct);
+  }, [dataset, features, weights, reviews]);
 
   return (
-    <div className="px-4 md:px-8 lg:px-10 mx-auto max-w-7xl py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl md:text-3xl font-semibold">Ranking de plataformas SCADA</h1>
-        <Link
-          to="/"
-          className="rounded-2xl bg-slate-800 text-white px-4 py-2 hover:bg-slate-700 shadow"
-        >
-          ← Volver
-        </Link>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl md:text-3xl font-semibold">Ranking de plataformas SCADA</h1>
+          <button
+            onClick={() => history.back()}
+            className="text-sm px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+          >
+            ← Volver
+          </button>
+        </div>
 
-      <div className="text-sm text-slate-600 mb-4">
-        Pesos en vivo desde Supabase (tabla <code>weights</code>). Si no hay conexión, se usan pesos por defecto.
-      </div>
+        {!rows.length && (
+          <div className="text-slate-500">Cargando dataset…</div>
+        )}
 
-      <ol className="space-y-6">
-        {scored.map((p, idx) => {
-          const rv = reviews[p.name] || {};
-          return (
-            <li key={p.name} className="rounded-2xl bg-white shadow p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold">
-                  <span className="text-slate-400 mr-2">#{idx + 1}</span>
-                  {p.name}
+        <div className="space-y-6">
+          {rows.map((p, idx) => (
+            <div key={p.name} className="bg-white rounded-2xl shadow p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="text-slate-500">#{idx + 1}</div>
+                  <h2 className="text-xl font-semibold">{p.name}</h2>
                 </div>
-                <div className="text-2xl font-bold tabular-nums">{p.score.toFixed(1)}</div>
+                <div className="text-2xl font-bold">{p.score.pct}</div>
               </div>
 
-              <div className="mt-2 text-sm text-slate-600">{p.description}</div>
-
-              <ReviewBadge pros={rv.pros} cons={rv.cons} notes={rv.notes} />
-            </li>
-          );
-        })}
-      </ol>
-
-      <MiningConclusion />
+              <div className="grid md:grid-cols-3 gap-4 mt-4">
+                <div className="rounded-xl bg-emerald-50 p-4">
+                  <div className="font-medium mb-1">Por qué destaca</div>
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    {(p.pros || ['(Sin reseñas)']).slice(0, 6).map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-4">
+                  <div className="font-medium mb-1">A tener en cuenta</div>
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    {(p.cons || ['(Sin reseñas)']).slice(0, 6).map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="text-sm text-slate-500">
+                    Puntuación normalizada según pesos {weights ? '(Supabase)' : '(default)'}.
+                  </div>
+                  {p.source_url && (
+                    <a
+                      href={p.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block mt-2 text-sm text-slate-600 underline"
+                    >
+                      ver origen
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
