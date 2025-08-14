@@ -1,0 +1,244 @@
+{
+  "version": "3.7.1",
+  "scale": {
+    "2": "ok/positivo",
+    "1": "medio/observación",
+    "0": "no/negativo"
+  },
+  "features": [
+    {
+      "id": "mining_adaptation",
+      "name": "Adaptación a minería"
+    },
+    {
+      "id": "scalability",
+      "name": "Escalabilidad"
+    },
+    {
+      "id": "substation_integration",
+      "name": "Integración de subestaciones"
+    },
+    {
+      "id": "hmi",
+      "name": "Interfaz de usuario (HMI/SCADA)"
+    },
+    {
+      "id": "native_functions",
+      "name": "Funcionalidades clave (nativas)"
+    },
+    {
+      "id": "app_arch",
+      "name": "Arquitectura de la aplicación Control Center"
+    },
+    {
+      "id": "ops_mgmt",
+      "name": "Gestión de operaciones mineras"
+    },
+    {
+      "id": "maintenance",
+      "name": "Configuración y mantenimiento"
+    },
+    {
+      "id": "redundancy",
+      "name": "Redundancia y disponibilidad"
+    },
+    {
+      "id": "security",
+      "name": "Ciberseguridad (IEC 62443, AD)"
+    },
+    {
+      "id": "antivirus",
+      "name": "Compatibilidad con antivirus"
+    },
+    {
+      "id": "templates",
+      "name": "Plantillas y objetos reutilizables"
+    },
+    {
+      "id": "hardware",
+      "name": "Compatibilidad con hardware"
+    },
+    {
+      "id": "web",
+      "name": "Acceso remoto/web"
+    },
+    {
+      "id": "local_support_cl",
+      "name": "Soporte local en Chile"
+    },
+    {
+      "id": "compat_versions",
+      "name": "Compatibilidad entre versiones"
+    },
+    {
+      "id": "time_to_implement",
+      "name": "Tiempo estimado de implementación"
+    },
+    {
+      "id": "tco",
+      "name": "Costo total de propiedad (TCO)"
+    },
+    {
+      "id": "distinctives",
+      "name": "Ventajas distintivas"
+    }
+  ],
+  "platforms": [
+    {
+      "id": "zenon",
+      "name": "zenon Energy Edition (NCS)"
+    },
+    {
+      "id": "hitachi_nm",
+      "name": "Hitachi Network Manager"
+    },
+    {
+      "id": "siemens_sp",
+      "name": "Siemens Spectrum Power"
+    },
+    {
+      "id": "power_op",
+      "name": "Power Operation Schneider"
+    }
+  ],
+  "ratings": {
+    "zenon": {
+      "mining_adaptation": 2,
+      "scalability": 2,
+      "substation_integration": 2,
+      "hmi": 2,
+      "native_functions": 2,
+      "app_arch": 2,
+      "ops_mgmt": 2,
+      "maintenance": 2,
+      "redundancy": 2,
+      "security": 2,
+      "antivirus": 2,
+      "templates": 2,
+      "hardware": 2,
+      "web": 2,
+      "local_support_cl": 2,
+      "compat_versions": 2,
+      "time_to_implement": 1,
+      "tco": 1,
+      "distinctives": 2
+    },
+    "hitachi_nm": {
+      "mining_adaptation": 1,
+      "scalability": 2,
+      "substation_integration": 2,
+      "hmi": 1,
+      "native_functions": 0,
+      "app_arch": 0,
+      "ops_mgmt": 1,
+      "maintenance": 1,
+      "redundancy": 2,
+      "security": 2,
+      "antivirus": 1,
+      "templates": 0,
+      "hardware": 1,
+      "web": 1,
+      "local_support_cl": 1,
+      "compat_versions": 0,
+      "time_to_implement": 0,
+      "tco": 0,
+      "distinctives": 1
+    },
+    "siemens_sp": {
+      "mining_adaptation": 1,
+      "scalability": 2,
+      "substation_integration": 2,
+      "hmi": 1,
+      "native_functions": 0,
+      "app_arch": 0,
+      "ops_mgmt": 1,
+      "maintenance": 1,
+      "redundancy": 2,
+      "security": 2,
+      "antivirus": 1,
+      "templates": 0,
+      "hardware": 0,
+      "web": 0,
+      "local_support_cl": 2,
+      "compat_versions": 0,
+      "time_to_implement": 0,
+      "tco": 0,
+      "distinctives": 1
+    },
+    "power_op": {
+      "mining_adaptation": 0,
+      "scalability": 1,
+      "substation_integration": 1,
+      "hmi": 0,
+      "native_functions": 0,
+      "app_arch": 0,
+      "ops_mgmt": 0,
+      "maintenance": 0,
+      "redundancy": 0,
+      "security": 1,
+      "antivirus": 1,
+      "templates": 0,
+      "hardware": 1,
+      "web": 1,
+      "local_support_cl": 1,
+      "compat_versions": 0,
+      "time_to_implement": 0,
+      "tco": 0,
+      "distinctives": 0
+    }
+  },
+  "pros": {
+    "zenon": [
+      "Plataforma unificada (SCADA/DMS/GIS/Historian/Comms).",
+      "Funciones nativas: GIS, Estimador de Estado, Flujo de carga, Topología, Interlocking, Alarmas.",
+      "Acceso web/HTML5, multi‑usuario, multi‑idioma; ergonomía y personalización.",
+      "Compatibilidad entre versiones; bajo riesgo de migración.",
+      "Agnóstico de hardware y antivirus."
+    ],
+    "hitachi_nm": [
+      "Alta escalabilidad para TSO/DSO.",
+      "Madurez en operación de redes."
+    ],
+    "siemens_sp": [
+      "Enfoque T&D con respaldo local (Siemens Chile)."
+    ],
+    "power_op": [
+      "HMI inicialmente amigable; acceso web; algunos reportes integrados."
+    ]
+  },
+  "cons": {
+    "zenon": [
+      "Requiere definición de estándares internos para explotar plantillas al máximo."
+    ],
+    "hitachi_nm": [
+      "Funciones no nativas; requiere integraciones externas.",
+      "Costo/tiempo de implementación altos."
+    ],
+    "siemens_sp": [
+      "Módulos separados; mayor complejidad en ingeniería.",
+      "Licenciamiento complejo."
+    ],
+    "power_op": [
+      "Falla el driver IEC‑61850 MMS entre IEDs y SCADA.",
+      "No hay casos de éxito en IEC‑61850 integrando marcas distintas.",
+      "Redundancia no funciona en práctica (requiere parches de fábrica).",
+      "Herramienta HMI deficiente; pop‑ups y templates no se modifican correctamente.",
+      "Genera gran cantidad de logs que llenan discos de servidores.",
+      "Configuradores tediosos y dependientes de software externo para base de datos.",
+      "Actualizaciones para corregir errores: no funcionan a la primera o requieren proceso extenso.",
+      "No cumple NTSyCS: no mantiene timestamp en agrupamientos y no transforma puntos simples/dobles correctamente."
+    ]
+  },
+  "alerts": {
+    "power_op": [
+      "IEC‑61850 no soportado adecuadamente (driver no integra IEDs de diferentes marcas).",
+      "Curva de aprendizaje: compleja; documentación insuficiente en español y procedimientos engorrosos."
+    ]
+  },
+  "weights_default": {
+    "security": 2.0,
+    "redundancy": 1.5,
+    "substation_integration": 1.2
+  },
+  "about": "Starter dataset para SCADA Comparison Dashboard. Puedes ampliarlo con más plataformas/características."
+}
