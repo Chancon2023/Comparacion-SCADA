@@ -1,101 +1,91 @@
+// src/pages/Ranking.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import supabase from "../lib/supabase";
 import MiningConclusion from "../components/MiningConclusion";
-import { getSupabase } from "../lib/supabase";
+import dataset from "../data/scada_dataset.json";
+import { scoreValue } from "../components/utils";
+import { Link } from "react-router-dom";
 
-export default function RankingPage() {
-  const [weights, setWeights] = useState(null);
-  const [reviews, setReviews] = useState({});
-  const [error, setError] = useState(null);
+const DEFAULT_WEIGHTS = {
+  seguridad: 2.0,
+  redundancia: 1.5,
+  integracion: 1.2,
+  rendimiento: 1.0,
+  costos: 1.0
+};
 
-  // 1) Pull live weights & reviews (optional) from Supabase — if credentials exist.
+function computeScore(p, weights) {
+  // Suma ponderada simple sobre p.weightsKeys (si existen) o sobre p.scores
+  let sum = 0;
+  let denom = 0;
+  const src = p.scores || {};
+  for (const [k, v] of Object.entries(src)) {
+    const w = weights[k] || 1.0;
+    sum += scoreValue(v) * w;
+    denom += w;
+  }
+  return denom ? (sum / denom) * 100 : 0;
+}
+
+export default function Ranking() {
+  const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
+
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        const supabase = await getSupabase();
-        if (!supabase) return;
-
-        const { data: wdata, error: werr } = await supabase.from("weights").select("key,value");
-        if (!werr && wdata) {
-          const obj = {};
-          for (const row of wdata) obj[row.key] = Number(row.value);
-          setWeights(obj);
-          // small cache to localStorage (in case ranking code elsewhere reads from there)
-          try { localStorage.setItem("weights_live", JSON.stringify(obj)); } catch {}
-        }
-
-        const { data: rdata } = await supabase.from("reviews").select("platform, text").limit(200);
-        if (rdata) {
-          const map = {};
-          for (const r of rdata) {
-            map[r.platform] = map[r.platform] || [];
-            map[r.platform].push(r.text);
-          }
-          setReviews(map);
+        const { data, error } = await supabase.from("weights").select("*").limit(1);
+        if (!cancelled && data && data.length) {
+          const w = data[0];
+          const merged = { ...DEFAULT_WEIGHTS, ...w };
+          delete merged.id;
+          delete merged.created_at;
+          setWeights(merged);
         }
       } catch (e) {
-        console.warn("[Ranking] Supabase opcional:", e);
+        console.warn("[weights] usando por defecto", e);
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
-  // 2) Fallback/merge: keep whatever the app already does for ranking.
-  // We just show a tiny header with live weights loaded (if any)
-  const weightsPreview = useMemo(() => {
-    if (!weights) return null;
-    const entries = Object.entries(weights).slice(0, 6);
-    return entries.map(([k, v]) => `${k}:${v}`).join(" • ");
+  const rows = useMemo(() => {
+    const list = (dataset.platforms || []).map(p => ({
+      name: p.name,
+      score: computeScore(p, weights),
+      why: p.highlights || []
+    }));
+    return list.sort((a, b) => b.score - a.score);
   }, [weights]);
 
-  // Provide a small Back button (home)
-  const goBack = () => {
-    try {
-      if (window.history.length > 1) window.history.back();
-      else window.location.href = "/";
-    } catch {
-      window.location.href = "/";
-    }
-  };
-
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl md:text-3xl font-semibold">Ranking de plataformas SCADA</h1>
-        <button
-          onClick={goBack}
-          className="rounded-2xl px-4 py-2 bg-slate-800 text-white shadow hover:bg-slate-700"
-        >
-          ← Volver
-        </button>
+        <Link to="/" className="rounded-lg px-4 py-2 bg-gray-200 hover:bg-gray-300">← Volver</Link>
       </div>
 
-      {weightsPreview && (
-        <div className="mb-6 text-sm text-slate-600">
-          <span className="font-medium">Pesos activos (Supabase):</span> {weightsPreview}
-        </div>
-      )}
+      <p className="text-sm text-gray-600 mb-4">
+        Ranking como promedio normalizado (0..100) con pesos {JSON.stringify(weights)}.{" "}
+        Si Supabase no está configurado, se usan pesos por defecto.
+      </p>
 
-      {/* Aquí se renderiza el ranking existente del proyecto (lista/tabla original).
-          No lo tocamos para no romper tu lógica actual. */}
-      <div id="ranking-anchor" className="mb-8">
-        {/* Conserva tu componente/lista original de ranking aquí */}
-      </div>
-
-      {/* Mini reseñas desde Supabase (si existen) */}
-      {Object.keys(reviews).length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2">Reseñas recientes (Supabase)</h2>
-          <div className="grid md:grid-cols-2 gap-3">
-            {Object.entries(reviews).map(([platform, items]) => (
-              <div key={platform} className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="font-medium mb-1">{platform}</div>
-                <ul className="list-disc pl-5 text-slate-700 space-y-1">
-                  {items.slice(0, 3).map((t, i) => <li key={i}>{t}</li>)}
-                </ul>
-              </div>
-            ))}
+      <div className="space-y-4">
+        {rows.map((r, idx) => (
+          <div key={r.name} className="rounded-2xl shadow bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-gray-500">#{idx + 1}</div>
+              <div className="font-medium">{r.name}</div>
+              <div className="text-2xl font-bold">{r.score.toFixed(1)}</div>
+            </div>
+            {!!r.why?.length && (
+              <ul className="mt-3 text-sm text-gray-700 list-disc pl-6">
+                {r.why.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            )}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
 
       <MiningConclusion />
     </div>

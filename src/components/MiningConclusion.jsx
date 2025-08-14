@@ -1,3 +1,4 @@
+// src/components/MiningConclusion.jsx
 import React, { useRef } from "react";
 
 export default function MiningConclusion() {
@@ -6,21 +7,13 @@ export default function MiningConclusion() {
   const exportPDF = async () => {
     const node = ref.current;
     if (!node) return;
-
-    // dynamic CDN imports (avoid bundler resolve issues)
-    const [{ default: html2canvas }, jsPDFmod] = await Promise.all([
-      import(/* @vite-ignore */ "https://esm.sh/html2canvas@1.4.1"),
-      import(/* @vite-ignore */ "https://esm.sh/jspdf@2.5.1")
-    ]);
-
-    const jsPDF = jsPDFmod.jsPDF || jsPDFmod.default || jsPDFmod;
-
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true
-    });
-
+    const html2canvas = window.html2canvas;
+    const { jsPDF } = window.jspdf || {};
+    if (!html2canvas || !jsPDF) {
+      alert("No se encontró html2canvas/jsPDF. Revisa index.html (CDNs).");
+      return;
+    }
+    const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
 
@@ -37,7 +30,6 @@ export default function MiningConclusion() {
       if (remaining > 0) pdf.addPage();
       y += pageHeight;
     }
-
     pdf.save("conclusion-mineria.pdf");
   };
 
@@ -52,19 +44,16 @@ export default function MiningConclusion() {
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
           title="Exportar PDF"
         >
-          <span className="font-medium">⬇</span> Exportar PDF
+          <span aria-hidden>📄⬇️</span> Exportar PDF
         </button>
       </div>
 
-      <div
-        ref={ref}
-        className="bg-white rounded-2xl shadow p-6 md:p-8 leading-relaxed prose prose-slate max-w-none"
-      >
+      <div ref={ref} className="bg-white rounded-2xl shadow p-6 md:p-8 leading-relaxed max-w-none">
         <p>
           <strong>zenon Energy Edition</strong> como <em>Network Control System</em> es la opción más adecuada
           para un centro de control minero debido a:
         </p>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-6 space-y-2 mt-2">
           <li>
             Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos
             de integración.

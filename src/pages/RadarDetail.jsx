@@ -1,80 +1,57 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { getSupabase } from "../lib/supabase";
+// src/pages/RadarDetail.jsx
+import React, { useMemo, useState } from "react";
+import dataset from "../data/scada_dataset.json";
+import { prepareData } from "../components/utils";
+import { Link } from "react-router-dom";
 
-// Carga segura del dataset desde /public
-async function loadDataset() {
-  const candidates = ["/scada_dataset.json", "/data/scada_dataset.json"];
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { cache: "no-cache" });
-      if (res.ok) return await res.json();
-    } catch {}
-  }
-  throw new Error("No se pudo cargar el dataset JSON (colócalo en /public como scada_dataset.json).");
-}
+const ALL_FEATURES = (dataset.features || []);
 
 export default function RadarDetail() {
-  const [data, setData] = useState(null);
-  const [weights, setWeights] = useState(null);
-  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState((dataset.platforms || []).slice(0, 3).map(p => p.name));
+  const [features, setFeatures] = useState(ALL_FEATURES);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const ds = await loadDataset();
-        setData(ds);
-      } catch (e) {
-        setError(e.message || String(e));
-      }
-      try {
-        const supabase = await getSupabase();
-        if (supabase) {
-          const { data: wdata } = await supabase.from("weights").select("key,value");
-          if (wdata) {
-            const obj = {};
-            for (const row of wdata) obj[row.key] = Number(row.value);
-            setWeights(obj);
-            try { localStorage.setItem("weights_live", JSON.stringify(obj)); } catch {}
-          }
-        }
-      } catch (e) {
-        console.warn("[Radar] Supabase opcional:", e);
-      }
-    })();
-  }, []);
-
-  const info = useMemo(() => {
-    if (!data) return null;
-    // No alteramos tu lógica de radar, solo mostramos un preview
-    return {
-      platforms: Object.keys(data.platforms || {}),
-      features: data.features || []
-    };
-  }, [data]);
-
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
-  if (!data || !info) return <div className="p-6">Cargando…</div>;
+  const rows = useMemo(() => prepareData(dataset, selected), [selected]);
 
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-3">Radar detallado</h1>
-
-      {weights && (
-        <div className="mb-4 text-sm text-slate-600">
-          <span className="font-medium">Pesos activos (Supabase):</span>{" "}
-          {Object.entries(weights).slice(0,6).map(([k,v]) => `${k}:${v}`).join(" • ")}
-        </div>
-      )}
-
-      {/* Aquí mantiene tu gráfico y controles existentes. Este bloque solo informa que el dataset cargó. */}
-      <div className="rounded-2xl border bg-white p-4 shadow-sm mb-6">
-        <div className="text-sm text-slate-700">
-          <div><span className="font-medium">Plataformas:</span> {info.platforms.join(", ")}</div>
-          <div><span className="font-medium">Características:</span> {info.features.join(", ")}</div>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl md:text-3xl font-semibold">Radar detallado</h1>
+        <Link to="/" className="rounded-lg px-4 py-2 bg-gray-200 hover:bg-gray-300">← Volver</Link>
       </div>
 
-      {/* Mantén tu componente de radar real aquí */}
+      <p className="text-sm text-gray-600 mb-4">
+        Selecciona hasta 3 plataformas para comparar (dataset mínimo de ejemplo incluido).
+      </p>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(dataset.platforms || []).map(p => {
+          const active = selected.includes(p.name);
+          return (
+            <button
+              key={p.name}
+              onClick={() => {
+                setSelected(prev => {
+                  if (prev.includes(p.name)) return prev.filter(x => x !== p.name);
+                  if (prev.length >= 3) return [...prev.slice(1), p.name];
+                  return [...prev, p.name];
+                });
+              }}
+              className={`px-3 py-1 rounded-full border ${active ? "bg-black text-white" : "bg-white"}`}
+            >
+              {p.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow">
+        <pre className="text-xs overflow-auto">
+{JSON.stringify(rows.slice(0, 5), null, 2)}
+        </pre>
+        <p className="text-xs text-gray-500 mt-2">
+          (Este mock imprime las primeras filas calculadas. Sustituye por tu componente de Radar real.)
+        </p>
+      </div>
     </div>
   );
 }
