@@ -1,0 +1,2 @@
+// src/pages/Charts.jsx (línea de import corregida)
+import { COLORS, scoreValue, prepareData } from "../components/utils";
