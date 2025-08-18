@@ -1,0 +1,214 @@
+{
+  "meta": {
+    "name": "SCADA dataset mining extended",
+    "version": "v3.7.1-local",
+    "updated": "2025-08-18",
+    "scoring": {
+      "critical_features": [
+        "ciberseguridad",
+        "redundancia",
+        "protocolos",
+        "compatibilidad_hardware"
+      ],
+      "feature_points": {
+        "ok": 10,
+        "partial": 5,
+        "no": 0
+      },
+      "redflag_penalties": {
+        "hard": 20,
+        "soft": 10
+      },
+      "max_score": 100
+    }
+  },
+  "platforms": [
+    {
+      "id": "zenon_ncs",
+      "name": "zenon Energy Edition (NCS)",
+      "vendor": "COPA-DATA",
+      "category": "SCADA/DMS",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "ok",
+        "hmi": "ok",
+        "acceso_web": "ok",
+        "actualizaciones": "ok",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "Plataforma unificada SCADA/DMS/GIS/Historian.",
+        "Compatibilidad garantizada entre versiones.",
+        "Acceso remoto y web nativo (HTML5).",
+        "Agnóstico de hardware y antivirus; fácil de mantener."
+      ],
+      "red_flags": []
+    },
+    {
+      "id": "hitachi_nm",
+      "name": "Hitachi Network Manager",
+      "vendor": "Hitachi Energy",
+      "category": "SCADA/DMS",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "partial",
+        "hmi": "partial",
+        "acceso_web": "partial",
+        "actualizaciones": "ok",
+        "soporte_cl": "partial"
+      },
+      "comments": [
+        "Gestión avanzada de redes de transmisión y distribución.",
+        "Puede requerir personalización adicional para minería."
+      ],
+      "red_flags": []
+    },
+    {
+      "id": "siemens_spectrum_power",
+      "name": "Siemens Spectrum Power",
+      "vendor": "Siemens",
+      "category": "SCADA/DMS",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "partial",
+        "hmi": "partial",
+        "acceso_web": "partial",
+        "actualizaciones": "ok",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "Solución integral para T&D; modular.",
+        "Dependencia más alta de ecosistema/hardware Siemens."
+      ],
+      "red_flags": [
+        {
+          "text": "Alto costo total de propiedad (enterprise).",
+          "level": "soft"
+        }
+      ]
+    },
+    {
+      "id": "microscada_x",
+      "name": "MicroSCADA X",
+      "vendor": "Hitachi Energy (ABB legacy)",
+      "category": "SCADA",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "partial",
+        "hmi": "partial",
+        "acceso_web": "partial",
+        "actualizaciones": "ok",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "Amplia base instalada y madurez operativa."
+      ],
+      "red_flags": []
+    },
+    {
+      "id": "power_operation_schneider",
+      "name": "Power Operation Schneider",
+      "vendor": "Schneider Electric",
+      "category": "SCADA",
+      "features": {
+        "ciberseguridad": "partial",
+        "redundancia": "partial",
+        "protocolos": "partial",
+        "compatibilidad_hardware": "partial",
+        "hmi": "partial",
+        "acceso_web": "partial",
+        "actualizaciones": "partial",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "Interfaz de administración WebGAT; HMI amigable para pantallas locales."
+      ],
+      "red_flags": [
+        {
+          "text": "Falla el driver IEC61850 para comunicación MMS entre IEDs y SCADA.",
+          "level": "hard"
+        },
+        {
+          "text": "Los logs que genera el software llenan los discos de los servidores.",
+          "level": "hard"
+        },
+        {
+          "text": "La redundancia no funciona.",
+          "level": "hard"
+        },
+        {
+          "text": "Herramienta para el desarrollo de pantallas HMI es deficiente.",
+          "level": "hard"
+        },
+        {
+          "text": "IEC61850 no soportado adecuadamente; el driver no integra IEDs multi-marca.",
+          "level": "hard"
+        },
+        {
+          "text": "Herramientas de configuración tediosas.",
+          "level": "soft"
+        },
+        {
+          "text": "Actualizaciones correctivas no funcionan a la primera o requieren procedimiento extenso.",
+          "level": "soft"
+        },
+        {
+          "text": "Ningún caso de éxito en integración bajo IEC61850.",
+          "level": "hard"
+        },
+        {
+          "text": "No cumple con NTSyCS: no puede agrupar señales manteniendo timestamp ni transformar puntos simples a dobles.",
+          "level": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ecostruxure_grid_operation_adms",
+      "name": "EcoStruxure™ Grid Operation ADMS",
+      "vendor": "Schneider Electric",
+      "category": "ADMS",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "partial",
+        "hmi": "partial",
+        "acceso_web": "partial",
+        "actualizaciones": "ok",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "ADMS con integración de nuevos protocolos y capacidades de control avanzado."
+      ],
+      "red_flags": []
+    },
+    {
+      "id": "epas_gateway_schneider",
+      "name": "EPAS Gateway Schneider",
+      "vendor": "Schneider Electric",
+      "category": "Gateway/Comms",
+      "features": {
+        "ciberseguridad": "ok",
+        "redundancia": "ok",
+        "protocolos": "ok",
+        "compatibilidad_hardware": "ok",
+        "hmi": "no",
+        "acceso_web": "no",
+        "actualizaciones": "ok",
+        "soporte_cl": "ok"
+      },
+      "comments": [
+        "Gateway con IEC 61850/104/DNP3; robusto para integración."
+      ],
+      "red_flags": []
+    }
+  ]
+}
