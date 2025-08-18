@@ -1,2 +1,0 @@
-// src/pages/Home.jsx (línea de import corregida)
-import { classForCell, prepareData } from "../components/utils";
