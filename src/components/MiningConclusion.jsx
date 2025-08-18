@@ -1,15 +1,34 @@
 import React, { useRef } from "react";
-import { FileDown } from "lucide-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+
+// Inline SVG download icon (no external deps)
+const DownloadIcon = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    width="18"
+    height="18"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M12 3a1 1 0 011 1v9.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L11 13.586V4a1 1 0 011-1z" />
+    <path d="M5 15a1 1 0 011 1v2h12v-2a1 1 0 112 0v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3a1 1 0 012 0v2h2v-2a1 1 0 011-1z" />
+  </svg>
+);
 
 export default function MiningConclusion() {
   const ref = useRef(null);
 
-  const exportPDF = async () => {
+  async function exportPDF() {
     const node = ref.current;
     if (!node) return;
-    // Renderiza el bloque a imagen con buena resolución
+
+    // Lazy-load ESM versions from CDN to avoid bundler deps
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("https://cdn.skypack.dev/html2canvas@1.4.1"),
+      import("https://cdn.skypack.dev/jspdf@2.5.1"),
+    ]);
+
     const canvas = await html2canvas(node, {
       scale: 2,
       useCORS: true,
@@ -25,7 +44,6 @@ export default function MiningConclusion() {
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    // Si el contenido es alto, lo paginamos verticalmente
     let y = 0;
     let remaining = imgHeight;
     while (remaining > 0) {
@@ -36,7 +54,7 @@ export default function MiningConclusion() {
     }
 
     pdf.save("conclusion-mineria.pdf");
-  };
+  }
 
   return (
     <section className="mt-10">
@@ -48,7 +66,7 @@ export default function MiningConclusion() {
           onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
         >
-          <FileDown size={18} /> Exportar PDF
+          <DownloadIcon /> Exportar PDF
         </button>
       </div>
 
