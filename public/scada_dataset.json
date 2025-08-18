@@ -1,0 +1,209 @@
+{
+  "version": "3.7.1-fullranking-aug2025",
+  "weights": {
+    "Ciberseguridad": 1.0,
+    "Redundancia": 1.0,
+    "Protocolos": 1.0,
+    "Compatibilidad con hardware": 0.8
+  },
+  "platforms": [
+    {
+      "id": "zenon-ncs",
+      "name": "zenon Energy Edition (NCS)",
+      "vendor": "COPA-DATA",
+      "scores": {
+        "Ciberseguridad": 95,
+        "Redundancia": 95,
+        "Protocolos": 92,
+        "Compatibilidad con hardware": 94
+      },
+      "pros": [
+        "Plataforma unificada (SCADA/DMS/GIS/Historian/Comms).",
+        "Estimador de estado y GIS nativos.",
+        "Compatibilidad garantizada entre versiones.",
+        "Acceso web/HTML5 nativo, clientes remotos.",
+        "Agnóstico de hardware y antivirus.",
+        "Soporte local con integradores certificados en Chile."
+      ],
+      "cons": [
+        "Requiere diseño de templates para homogeneidad en proyectos grandes."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Alta adecuación a minería (MES, mantenimiento, energía, seguridad).",
+        "Curva de aprendizaje baja-moderada; abundante documentación."
+      ]
+    },
+    {
+      "id": "siemens-spectrum-power",
+      "name": "Siemens Spectrum Power",
+      "vendor": "Siemens",
+      "scores": {
+        "Ciberseguridad": 92,
+        "Redundancia": 94,
+        "Protocolos": 95,
+        "Compatibilidad con hardware": 80
+      },
+      "pros": [
+        "Solución integral para T&D con fuerte soporte de protocolos IEC/DNP.",
+        "Alto desempeño en redundancia y disponibilidad."
+      ],
+      "cons": [
+        "Licenciamiento y servicios suelen ser más altos.",
+        "Dependencia de stack/hardware certificados."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Orientado a utilities; para minería requiere ingeniería adicional."
+      ]
+    },
+    {
+      "id": "hitachi-network-manager",
+      "name": "Hitachi Network Manager",
+      "vendor": "Hitachi Energy",
+      "scores": {
+        "Ciberseguridad": 88,
+        "Redundancia": 90,
+        "Protocolos": 90,
+        "Compatibilidad con hardware": 78
+      },
+      "pros": [
+        "Gestión avanzada de redes de transmisión y distribución.",
+        "Muy escalable en topologías TSO/DSO."
+      ],
+      "cons": [
+        "Configuración y mantenimiento complejos; fuerte dependencia de servicios.",
+        "Costos de acceso remoto/licenciamiento pueden ser altos."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Adaptación a minería media; puede requerir personalización adicional."
+      ]
+    },
+    {
+      "id": "microscada-x",
+      "name": "MicroSCADA X",
+      "vendor": "Hitachi Energy",
+      "scores": {
+        "Ciberseguridad": 85,
+        "Redundancia": 90,
+        "Protocolos": 90,
+        "Compatibilidad con hardware": 78
+      },
+      "pros": [
+        "Plataforma madura en operación de redes.",
+        "Buen soporte de protocolos IEC 61850/104 y DNP3."
+      ],
+      "cons": [
+        "Entorno gráfico y UX menos flexible comparado con plataformas modernas."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Foco histórico en utilities; para minería requiere ajustes."
+      ]
+    },
+    {
+      "id": "schneider-epas-gateway",
+      "name": "EPAS Gateway Schneider",
+      "vendor": "Schneider Electric",
+      "scores": {
+        "Ciberseguridad": 85,
+        "Redundancia": 88,
+        "Protocolos": 92,
+        "Compatibilidad con hardware": 75
+      },
+      "pros": [
+        "Puerta de enlace robusta con amplio soporte de protocolos.",
+        "Facilita integraciones multiprotocolo."
+      ],
+      "cons": [
+        "No es un SCADA completo; requiere integración con plataformas superiores."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Útil como capa de comunicaciones en proyectos complejos."
+      ]
+    },
+    {
+      "id": "schneider-ecostruxure-adms",
+      "name": "EcoStruxure™ Grid Operation ADMS",
+      "vendor": "Schneider Electric",
+      "scores": {
+        "Ciberseguridad": 86,
+        "Redundancia": 90,
+        "Protocolos": 88,
+        "Compatibilidad con hardware": 76
+      },
+      "pros": [
+        "Arquitectura modular y flexible para utilities.",
+        "Buenas capacidades de monitoreo y control avanzado."
+      ],
+      "cons": [
+        "Requiere ingeniería especializada y migraciones costosas entre versiones."
+      ],
+      "red_flags": [],
+      "comments": [
+        "Soporte local variable; revisar partner específico para minería."
+      ]
+    },
+    {
+      "id": "schneider-power-operation",
+      "name": "Power Operation Schneider",
+      "vendor": "Schneider Electric",
+      "scores": {
+        "Ciberseguridad": 60,
+        "Redundancia": 55,
+        "Protocolos": 50,
+        "Compatibilidad con hardware": 65
+      },
+      "pros": [
+        "Implementación de arquitectura redundante documentada en clientes mineros (revisar caso)."
+      ],
+      "cons": [
+        "Revisar costos y roadmap de actualizaciones en pruebas controladas."
+      ],
+      "red_flags": [
+        {
+          "text": "Falla el driver IEC61850 para la comunicación MMS entre IEDs y SCADA.",
+          "severity": "hard"
+        },
+        {
+          "text": "Logs que genera el software llenan los discos de los servidores.",
+          "severity": "hard"
+        },
+        {
+          "text": "La redundancia no funciona.",
+          "severity": "hard"
+        },
+        {
+          "text": "Herramienta para el desarrollo de pantallas HMI es deficiente.",
+          "severity": "medium"
+        },
+        {
+          "text": "IEC61850 no soportado adecuadamente; el driver no integra IED de distintas marcas.",
+          "severity": "hard"
+        },
+        {
+          "text": "Herramientas de configuración tediosas.",
+          "severity": "medium"
+        },
+        {
+          "text": "Actualizaciones corrigen errores pero no funcionan a la primera o requieren procedimiento extenso.",
+          "severity": "medium"
+        },
+        {
+          "text": "Ningún caso de éxito en integración de proyectos bajo el estándar IEC61850.",
+          "severity": "hard"
+        },
+        {
+          "text": "No cumple NTSyCS: no puede agrupar señales manteniendo timestamp ni transformar puntos simples a dobles.",
+          "severity": "hard"
+        }
+      ],
+      "comments": [
+        "Validar integración IEC 61850 con IED multivendor en FAT.",
+        "Revisar plan de mantenimiento preventivo para logs y almacenamiento."
+      ]
+    }
+  ]
+}
