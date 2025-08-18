@@ -1,39 +1,19 @@
-import React, { useMemo } from "react";
-import data from "../data/scada_dataset.json";
-import { prepareData, classForCell, scoreValue } from "../components/utils";
+import React from 'react'
+import data from '../data/scada_dataset.json'
+import { prepareData } from '../components/utils'
 
 export default function Home() {
-  const dataset = useMemo(() => {
-    const arr = Array.isArray(data) ? data : data?.platforms || [];
-    return arr.map(prepareData);
-  }, []);
-
+  const ranking = prepareData(data)
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-4">SCADA Comparación Dashboard</h1>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        {dataset.map((p, i) => {
-          const f = p.features || {};
-          const keys = Object.keys(f || {});
-          const alguna = keys[0];
-          const raw = alguna ? f[alguna] : undefined;
-          const v = typeof raw === "number" ? raw : scoreValue(raw);
-
-          return (
-            <div key={i} className="rounded-2xl border bg-white p-4">
-              <div className="font-medium mb-2">{p.name || `Plataforma ${i+1}`}</div>
-              {alguna ? (
-                <div className={"inline-block px-2 py-1 rounded " + classForCell(v)}>
-                  {alguna}: {(v*100).toFixed(0)}%
-                </div>
-              ) : (
-                <div className="text-slate-500 text-sm">Sin features cargados</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
+      {ranking.slice(0,2).map(r => (
+        <div key={r.id} style={{borderRadius:14, background:'#fff', padding:16, boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
+          <div style={{fontWeight:600}}>{data.platforms.find(p=>p.id===r.id)?.name}</div>
+          <span style={{marginTop:8, display:'inline-block', background:'rgba(20,184,166,.12)', color:'#065f46', padding:'6px 10px', borderRadius:8}}>
+            Ciberseguridad: {Math.round(r.avg*100)}%
+          </span>
+        </div>
+      ))}
     </div>
-  );
+  )
 }

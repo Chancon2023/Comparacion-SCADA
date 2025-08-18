@@ -1,40 +1,50 @@
-[
-  {
-    "name": "zenon Energy Edition (NCS)",
-    "features": {
-      "Ciberseguridad": "alta",
-      "Redundancia": "ok",
-      "Protocolos": "ok",
-      "Compatibilidad con hardware": "alta",
-      "Integración IEC61850": "ok",
-      "Acceso remoto/web": "ok",
-      "Casos de Éxito": "ok"
+{
+  "platforms": [
+    {
+      "id": "zenon",
+      "name": "zenon Energy Edition (NCS)"
     },
-    "pros": [
-      "Plataforma unificada",
-      "Funciones nativas GIS/Estimador de estado"
-    ],
-    "cons": [
-      "—"
-    ],
-    "notes": []
-  },
-  {
-    "name": "Power Operation Schneider",
-    "features": {
-      "Ciberseguridad": "media",
-      "Redundancia": "ok",
-      "Protocolos": "ok",
-      "Compatibilidad con hardware": "media",
-      "Integración IEC61850": "no soportado adecuadamente"
+    {
+      "id": "powerop",
+      "name": "Power Operation Schneider"
     },
-    "pros": [
-      "Arquitectura redundante implementada"
-    ],
-    "cons": [
-      "Driver IEC61850 con problemas MMS",
-      "Herramienta HMI deficiente"
-    ],
-    "notes": []
+    {
+      "id": "hitachi",
+      "name": "Hitachi Network Manager"
+    },
+    {
+      "id": "spectrum",
+      "name": "Siemens Spectrum Power"
+    }
+  ],
+  "features": {
+    "zenon": {
+      "ciberseguridad": "ok",
+      "redundancia": "ok",
+      "protocolos": "ok",
+      "hardware": "ok",
+      "hmi": "ok"
+    },
+    "powerop": {
+      "ciberseguridad": "mid",
+      "redundancia": "mid",
+      "protocolos": "mid",
+      "hardware": "mid",
+      "hmi": "mid"
+    },
+    "hitachi": {
+      "ciberseguridad": "mid",
+      "redundancia": "ok",
+      "protocolos": "ok",
+      "hardware": "mid",
+      "hmi": "mid"
+    },
+    "spectrum": {
+      "ciberseguridad": "ok",
+      "redundancia": "ok",
+      "protocolos": "ok",
+      "hardware": "mid",
+      "hmi": "mid"
+    }
   }
-]
+}

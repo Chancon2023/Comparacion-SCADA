@@ -1,78 +1,30 @@
-import React, { useMemo, useState } from "react";
-import data from "../data/scada_dataset.json";
-import { computeRadarRow, prepareData, DEFAULT_WEIGHTS } from "../components/utils";
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip, Legend
-} from "recharts";
+import React from 'react'
+import data from '../data/scada_dataset.json'
+import { computeRadarRow } from '../components/utils'
 
-const CRITICAL = ["Ciberseguridad","Redundancia","Protocolos","Compatibilidad con hardware","Integración IEC61850"];
+const CRITICAL = ['ciberseguridad','redundancia','protocolos','hardware']
 
 export default function RadarDetail() {
-  const [selected, setSelected] = useState(0);
-
-  const dataset = useMemo(() => {
-    const arr = Array.isArray(data) ? data : data?.platforms || [];
-    return arr.map(prepareData);
-  }, []);
-
-  const platform = dataset[selected] || {};
-  const featureKeys = useMemo(() => {
-    const feats = platform.features || {};
-    const keys = Object.keys(feats || {});
-    const ordered = [
-      ...CRITICAL.filter(k => keys.includes(k)),
-      ...keys.filter(k => !CRITICAL.includes(k)),
-    ];
-    return ordered;
-  }, [platform]);
-
-  const radarData = useMemo(() => {
-    const row = computeRadarRow(platform, featureKeys);
-    return featureKeys.map((k) => ({
-      feature: k,
-      value: Number(row[k] ?? 0),
-    }));
-  }, [platform, featureKeys]);
-
-  const weights = DEFAULT_WEIGHTS;
+  const featsZenon = data.features['zenon'] || {}
+  const featsPOS = data.features['powerop'] || {}
+  const z = computeRadarRow(featsZenon, CRITICAL)
+  const p = computeRadarRow(featsPOS, CRITICAL)
+  const label = ['Ciberseguridad','Redundancia','Protocolos','Compatibilidad HW']
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-4">Radar detallado</h1>
-
-      <div className="flex gap-3 flex-wrap mb-6">
-        {dataset.map((p, i) => {
-          const active = i === selected;
-          return (
-            <button
-              key={i}
-              className={"px-3 py-1 rounded-full border " + (active ? "bg-black text-white" : "bg-white")}
-              onClick={() => setSelected(i)}
-            >
-              {p.name || `Plataforma ${i+1}`}
-            </button>
-          );
-        })}
+    <div>
+      <h2 style={{fontSize:20, fontWeight:600, marginBottom:10}}>Radar (resumen crítico)</h2>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
+        <div style={{background:'#fff', padding:12, borderRadius:14, boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
+          <div style={{fontWeight:600, marginBottom:6}}>zenon</div>
+          <ul>{label.map((n,i)=>(<li key={n}>{n}: {Math.round(z[i]*100)}%</li>))}</ul>
+        </div>
+        <div style={{background:'#fff', padding:12, borderRadius:14, boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
+          <div style={{fontWeight:600, marginBottom:6}}>Power Operation Schneider</div>
+          <ul>{label.map((n,i)=>(<li key={n}>{n}: {Math.round(p[i]*100)}%</li>))}</ul>
+        </div>
       </div>
-
-      <div className="w-full h-[420px] bg-white rounded-2xl border shadow-sm">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="feature" />
-            <PolarRadiusAxis domain={[0, 1]} />
-            <Tooltip />
-            <Legend />
-            <Radar name="Cobertura" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-6 text-sm text-slate-600">
-        <div className="font-medium mb-1">Pesos actuales (locales):</div>
-        <pre className="bg-slate-50 p-3 rounded-lg overflow-x-auto">{JSON.stringify(weights, null, 2)}</pre>
-      </div>
+      <p style={{marginTop:12, color:'#6b7280'}}>Nota: Radar textual para mantener el build liviano (sin librerías de chart).</p>
     </div>
-  );
+  )
 }
