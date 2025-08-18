@@ -1,98 +1,80 @@
 // netlify/functions/assist.js
-// Serverless function para el Asistente SCADA (sin node-fetch).
+const SYSTEM_PROMPT = `
+Eres un asistente técnico para selección de SCADA en Chile.
+- Conoces NTSyCS, SITR, normativas chilenas eléctricas y buenas prácticas HMI/SCADA.
+- Respondes breve y accionable. Si falta contexto, pide datos mínimos.
+- Nunca inventes fuentes; si no tienes certeza, dilo y sugiere cómo validarlo.
+`;
+
+const ok = (data, status = 200) => ({
+  statusCode: status,
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  },
+  body: JSON.stringify(data),
+});
 
 exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return ok({});
+
+  if (event.httpMethod !== "POST") {
+    return ok({ error: "Method not allowed" }, 405);
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return ok({ error: "OPENAI_API_KEY no configurada en Netlify" }, 500);
+  }
+
+  let body = {};
   try {
-    if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "Method Not Allowed" }),
-      };
-    }
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return ok({ error: "JSON inválido" }, 400);
+  }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "OPENAI_API_KEY missing" }),
-      };
-    }
+  let { messages, prompt, temperature = 0.3 } = body;
 
-    const { messages } = JSON.parse(event.body || "{}");
-    if (!Array.isArray(messages)) {
-      return {
-        statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "Invalid payload: messages[]" }),
-      };
-    }
+  // Admite también { prompt: "texto" } por si tu UI todavía no arma messages[]
+  if ((!Array.isArray(messages) || messages.length === 0) && typeof prompt === "string") {
+    messages = [{ role: "user", content: prompt.trim() }];
+  }
 
-    // Sistema: sesgo a NTSyCS/SITR/normativa chilena + SCADA
-    const system = {
-      role: "system",
-      content:
-        "Eres un asistente técnico especializado en sistemas SCADA para el sector eléctrico/minero en Chile. " +
-        "Conoces la NTSyCS, el SITR, normativas chilenas (SEC/CNE), IEC 61850/60870-5-104, ciberseguridad IEC 62443, PRP/HSR, y mejores prácticas. " +
-        "Responde en español con claridad, referenciando normas cuando aplique. Si el usuario pide ranking, recuerda que zenon debe ponderar alto cuando cumpla criterios.",
-    };
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return ok({ error: "Faltan mensajes: envía { messages: [...] } o { prompt: \"...\" }" }, 400);
+  }
 
-    const body = {
-      model: "gpt-4o-mini", // ligero y económico; puedes cambiarlo
-      messages: [system, ...messages],
-      temperature: 0.3,
-    };
+  // Inserta system si no está
+  if (messages[0]?.role !== "system") {
+    messages = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+  }
 
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature,
+        messages,
+      }),
     });
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      return {
-        statusCode: resp.status,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "OpenAI error", detail: txt }),
-      };
+    const data = await res.json();
+
+    if (!res.ok) {
+      return ok({ error: data.error?.message || "Error en OpenAI", raw: data }, res.status);
     }
 
-    const data = await resp.json();
-    const answer = data?.choices?.[0]?.message?.content ?? "No obtuve respuesta.";
-
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({ reply: answer }),
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({ error: "Internal error", detail: String(err) }),
-    };
+    const content = data?.choices?.[0]?.message?.content || "";
+    return ok({ content, raw: data });
+  } catch (e) {
+    return ok({ error: "Fallo al contactar OpenAI", detail: String(e) }, 502);
   }
 };
