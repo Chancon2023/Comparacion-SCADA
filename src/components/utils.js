@@ -1,258 +1,178 @@
-export const COLORS = [
-  "#2563EB","#16A34A","#F59E0B","#DB2777","#0EA5E9","#10B981",
-  "#8B5CF6","#EF4444","#F97316","#22D3EE","#84CC16","#A855F7"
+/* utils.js – perfil minería + marcadores + reglas duras
+ * Drop-in para v3.7.1. Expone:
+ *  - analyzeText(text)
+ *  - scoreFeature(name, text, opts)
+ *  - computeRanking(softwares, opts)
+ *  - MINING_WEIGHTS, CRITICAL_KEYS (por si se usan en otras vistas)
+ *  - Helpers genéricos (groupBy, sum, toCSV, downloadBlob, formatNumber)
+ */
+
+// ========= Marcadores en español / emojis =========
+export const POS_MARKERS = [
+  "✔",
+  /\balta\b/i,
+  /muy escalable/i,
+  /nativ[ao]/i,
+  /agn[oó]stic[oa]/i,
+  /smart objects/i,
+  /hot-?standby|prp|hsr|circular redundancy/i,
+  /cumple.*iec\s*62443/i,
+  /html5/i,
+  /soporte t[ée]cnico local|integradores/i,
+  /compatibilidad.*versiones/i,
+  /bajo.*tco/i
 ];
 
-// Unificación de Zenon
-const ALIASES = {
-  "zenon energy edition (ncs)": "Zenon COPADATA",
-  "zenon energy edition": "Zenon COPADATA",
-  "zenon (ncs)": "Zenon COPADATA",
-  "zee600 abb (zenon)": "Zenon COPADATA"
+export const WARN_MARKERS = [
+  "⚠",
+  /\bmedia\b/i,
+  /requiere (personalizaci[oó]n|ingenier[íi]a|desarrollo|servicios externos|c[oó]digo)/i,
+  /variable seg[uú]n proyecto/i
+];
+
+export const NEG_MARKERS = [
+  "❌",
+  /no nat[iv]a/i,
+  /dependiente de su propio hardware/i,
+  /costoso|licenciamiento complejo/i,
+  /migraciones costosas/i,
+  /limitada.*reingenier[íi]a/i,
+  /no disponible/i
+];
+
+// ========= Reglas duras (negativas obligatorias) =========
+export const HARD_NEG_RULES = [
+  // IEC 61850 / MMS / integración IED
+  { label: "IEC61850 MMS falla", re: /(falla|no funciona).*(iec\s*61850|mms)/i },
+  { label: "No soporta IEC61850 bien", re: /(iec\s*61850).*(no (soporta|capaz)|no integra.*(ied|marcas))/i },
+  { label: "Sin casos de éxito IEC61850", re: /ning[uú]n caso de [éE]xito.*iec\s*61850/i },
+
+  // Redundancia
+  { label: "Redundancia no funciona", re: /la redundancia no funciona/i },
+
+  // Logs llenan disco servidores
+  { label: "Logs llenan disco", re: /(logs|ogs).*(llenan|llenado).*(discos|disco).*(servidores)/i },
+
+  // HMI deficiente
+  { label: "HMI deficiente", re: /herramienta.*(desarrollo).*hmi.*(deficiente|no adecuada)/i },
+
+  // Config tediosa
+  { label: "Config tediosa", re: /herramientas de configuraci[oó]n.*tediosas/i },
+
+  // Actualizaciones problemáticas
+  { label: "Parches/updates problemáticos", re: /(actualizaciones|parches).*(no funcionan|requieren.*procedimiento.*extenso|complejo)/i },
+
+  // NTSyCS / timestamp / agrupamientos
+  { label: "No cumple NTSyCS", re: /no cumple.*ntsycs/i },
+  { label: "No agrupa señales con timestamp", re: /(no (agrupa|mantiene).*(estampa|timestamp))|(no.*transformaci[oó]n.*puntos.*simples.*dobles)/i },
+];
+
+// ========= Pesos específicos para perfil minería =========
+export const MINING_WEIGHTS = {
+  "Adaptación a minería": 2.0,
+  "Integración de subestaciones": 2.0,
+  "Redundancia y disponibilidad": 1.8,
+  "Ciberseguridad": 1.8,
+  "Interfaz de usuario (HMI/SCADA)": 1.5,
+  "Compatibilidad entre versiones": 1.5,
+  "Configuración y mantenimiento": 1.6,
+  "Acceso remoto/web": 1.4,
+  "Costo total de propiedad (TCO)": 1.4,
+  // fallback para claves similares
+  "Protocolos soportados": 1.8,
 };
 
-// Normalización básica
-function normalize(str) {
-  const s = String(str || "");
-  return s
-    .toLowerCase()
-    .replace(/[áàâä]/g, "a")
-    .replace(/[éèêë]/g, "e")
-    .replace(/[íìîï]/g, "i")
-    .replace(/[óòôö]/g, "o")
-    .replace(/[úùûü]/g, "u")
-    .replace(/[ñ]/g, "n");
+// ========= Claves críticas para CAP duro =========
+export const CRITICAL_KEYS = new Set([
+  "Adaptación a minería",
+  "Integración de subestaciones",
+  "Redundancia y disponibilidad",
+  "Ciberseguridad",
+  "Protocolos soportados",
+]);
+
+// ========= Helpers =========
+export const sum = (arr) => arr.reduce((a,b)=>a+b,0);
+export const groupBy = (arr, fn) => arr.reduce((acc, it) => { const k = fn(it); (acc[k] ||= []).push(it); return acc; }, {});
+export const formatNumber = (n, d=1) => Number.isFinite(n) ? Number(n.toFixed(d)) : 0;
+
+export function toCSV(rows, headers) {
+  const esc = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const head = headers.map(esc).join(",");
+  const body = rows.map(r => headers.map(h => esc(r[h])).join(",")).join("\n");
+  return [head, body].join("\n");
 }
 
-// Diccionarios de señales
-const POS = [
-  "amigable","facil","intuitivo","robust","escalab","redundan","segur",
-  "cumple","soporta","integrac","flexib","rapido","alto desempeno",
-  "no requiere","no es necesario","implementacion exitosa","exitos"
-];
+export function downloadBlob(filename, content, mime="text/plain") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-const NEG = [
-  "no soporta","no cumple","no permite","no cuenta","no es compatible",
-  "no funciona","falla","inestabl","bug","error","limitad","licencia costosa","licencias costosas",
-  "dificil","complej","requiere software externo","alto costo","caro","caras","no disponible",
-  "driver","controlador","no recomendado","problema","problemas"
-];
+// ========= Análisis de texto =========
+export function analyzeText(text) {
+  if (!text) return { pos: 0, warn: 0, neg: 0, hardNeg: false };
 
-// Reglas de ALERTAS DURAS (frases exactas o casi exactas del cliente)
-const HARD_NEG_RULES = [
-  { re: /falla.*(driver|drive).*(iec\\s*61850|61850).*(mms|comunic)/, note: "Falla del driver IEC 61850 para comunicación MMS entre IEDs y SCADA." },
-  { re: /(gran cantidad de )?l?ogs?.*llena?n? los discos?,? de los servidores?/, note: "Logs llenan discos de servidores y afectan estabilidad." },
-  { re: /redundan(cia)? .*no funciona/, note: "La redundancia no funciona." },
-  { re: /(herramienta|tool).*desarrollo.*hmi.*deficient/, note: "Herramienta de desarrollo HMI deficiente." },
-  { re: /(iec\\s*61850|61850).*(no soportado|no.*adecuad|deficientemente).*driver.*(no.*capaz|incapaz|no integra|no integrar).*ied/, note: "Soporte IEC 61850 inadecuado: driver no integra IED de distintas marcas." },
-  { re: /herramientas? de configuracion.*tedios/, note: "Herramientas de configuración tediosas." },
-  { re: /(actualizacion|actualizaciones|parches).*corregir.*errores.*(no funciona|no funcionan|requiere|requieren).*extens.*(procedim|proceso).*instal/, note: "Actualizaciones para corregir errores no funcionan a la primera o requieren procedimiento extenso." },
+  const t = String(text).toLowerCase();
 
-  { re: /ningun caso de exito.*integraci(o|on).*(iec)?\s*61850/, note: "Sin casos de éxito en integración IEC 61850." },
-  { re: /no cumple.*ntsycs|no cumple con los requi?si?tos de la ntsycs/, note: "No cumple la NTSyCS (agrupamiento/transformación de señales con timestamp)." },
-  { re: /no es capaz de realizar.*agrupamientos? de senales?.*manteniendo.*(timestamp|estampa de tiempo)/, note: "No agrupa señales manteniendo timestamp." },
-  { re: /no es posible realizar.*transformaci(o|on) de puntos? simples? a dobles?/, note: "No permite transformar puntos simples a dobles." },
-];
+  const has = (arr) => arr.some(r => typeof r === "string" ? t.includes(r.toLowerCase()) : r.test(t));
 
+  const pos  = has(POS_MARKERS)  ? 1 : 0;
+  const warn = has(WARN_MARKERS) ? 1 : 0;
+  let   neg  = has(NEG_MARKERS)  ? 1 : 0;
 
-const WARN = [
-  "a comprobar","pendiente","por definir","validar","en pruebas","revisar"
-];
+  // Reglas duras
+  const hardNeg = HARD_NEG_RULES.some(rule => rule.re.test(t));
+  if (hardNeg) neg = Math.max(neg, 1);
 
-// Reglas especiales de contradiccion (documentacion vs practica)
-const SPECIAL = [
-  // IEC 61850: si aparecen "61850" y alguna negativa del set: no funciona/problemas/driver -> advertencia
-  { when: /61850|iec ?61850/, neg: /(no funciona|problema|driver|controlador|inestabl|falla)/, reason: "Soporte IEC 61850 declarado, pero observadas incidencias (driver/problemas)." },
-  // PRP/HSR
-  { when: /prp|hsr/, neg: /(no funciona|problema|inestabl|falla)/, reason: "Soporte PRP/HSR declarado, pero reportadas incidencias en practica." },
-];
+  return { pos, warn, neg, hardNeg };
+}
 
-function any(t, list) { return list.some(x => t.includes(x)); }
+// ========= Scoring por feature =========
+export function scoreFeature(featName, text, opts = {}) {
+  const { pos, warn, neg, hardNeg } = analyzeText(text);
+  // Base simple: pos=1, warn=0.5, neg=0, neutro 0.25 si no hay nada
+  const base = pos ? 1 : warn ? 0.5 : neg ? 0 : 0.25;
 
-export function analyzeText(raw) {
-  const v = String(raw || "");
-  
-  const t = normalize(v);
+  const profile = opts.profile || "mining";
+  const w = profile === "mining" && MINING_WEIGHTS[featName] ? MINING_WEIGHTS[featName] : 1.0;
 
-  // ALERTAS DURAS: si machea, clasifica directo como negativo con nota
-  for (const r of HARD_NEG_RULES) {
-    if (r.re.test(t)) {
-      return { tag: "neg", note: r.note || "", raw: v };
+  return { value: base * w, weight: w, hardNeg };
+}
+
+// ========= Ranking por software =========
+export function computeRanking(softwares, opts = {}) {
+  const profile = opts.profile || "mining";
+  const rows = [];
+
+  for (const [name, node] of Object.entries(softwares || {})) {
+    let total = 0;
+    let wsum = 0;
+    let hasHardNegCritical = false;
+
+    const feats = node?.features || {};
+    for (const [featName, comment] of Object.entries(feats)) {
+      const { value, weight, hardNeg } = scoreFeature(featName, comment, { profile });
+      total += value;
+      wsum += weight;
+
+      if (hardNeg && CRITICAL_KEYS.has(featName)) {
+        hasHardNegCritical = true;
+      }
     }
-  }
-  for (const r of (typeof HARD_WARN_RULES!=="undefined" ? HARD_WARN_RULES : [])) {
-    if (r.re.test(t)) {
-      return { tag: "warn", note: r.note || "", raw: v };
-    }
-  }
 
+    let score = wsum > 0 ? (total / wsum) * 100 : 0;
 
-  const pos = any(t, POS);
-  const neg = any(t, NEG);
-  const warn = any(t, WARN);
-  let specialNote = "";
+    // CAP duro si hay alertas críticas
+    if (hasHardNegCritical) score = Math.min(score, 60);
 
-  // Detectar contradicciones por reglas especiales
-  for (const rule of SPECIAL) {
-    if (rule.when.test(t) && rule.neg.test(t)) {
-      specialNote = rule.reason;
-      break;
-    }
+    rows.push({ name, score: formatNumber(score, 1) });
   }
 
-  if (neg && pos) return { tag: "warn", note: specialNote || "Comentario con señales positivas y negativas: validar en pruebas.", raw: v };
-  if (specialNote) return { tag: "warn", note: specialNote, raw: v };
-  if (warn) return { tag: "warn", note: "A comprobar/validar según documento.", raw: v };
-  if (neg) return { tag: "neg", note: "", raw: v };
-  if (pos) return { tag: "pos", note: "", raw: v };
-  return { tag: "neutral", note: "", raw: v };
-}
-
-// Puntuacion para radar (0..2)
-export function scoreValue(v) {
-  const a = analyzeText(v);
-  if (a.tag === "neg") return 0;
-  if (a.tag === "warn") return 0.5;
-  if (a.tag === "pos") return 2;
-  return 1; // neutral
-}
-
-// Clase para celda en matrices
-export function classForCell(v) {
-  const t = analyzeText(v).tag;
-  if (t === "pos") return "cell ok";
-  if (t === "neg") return "cell no";
-  if (t === "warn") return "cell warn";
-  return "cell";
-}
-
-// Pros / Advertencias / Contras a partir de las caracteristicas
-export function extractFindings(features) {
-  const pros = new Set();
-  const cautions = new Set();
-  const cons = new Set();
-
-  for (const [k, raw] of Object.entries(features || {})) {
-    const a = analyzeText(raw);
-    const msg = (k + ": " + String(raw||"")).trim();
-    if (a.tag === "pos") pros.add(msg);
-    else if (a.tag === "warn") cautions.add((a.note ? (k + ": " + a.note) : msg));
-    else if (a.tag === "neg") cons.add(a.note ? (k + ": " + a.note) : msg);
-  }
-  return {
-    pros: Array.from(pros).slice(0, 10),
-    cautions: Array.from(cautions).slice(0, 10),
-    cons: Array.from(cons).slice(0, 10),
-  };
-}
-
-// Unificar plataformas (Zenon) y devolver copia limpia
-export function prepareData(raw) {
-  if (!raw || !raw.softwares) return raw;
-  const out = { ...raw, softwares: {} };
-  for (const [name, s] of Object.entries(raw.softwares)) {
-    out.softwares[name] = { description: s.description || "", pros: [], cons: [], features: { ...(s.features || {}) } };
-  }
-  function normName(n){ return normalize(n); }
-  for (const [aliasLower, canonical] of Object.entries(ALIASES)) {
-    const found = Object.keys(out.softwares).find(n => normName(n) === aliasLower);
-    if (found) {
-      const src = out.softwares[found];
-      if (!out.softwares[canonical]) out.softwares[canonical] = { description: "", pros: [], cons: [], features: {} };
-      const dst = out.softwares[canonical];
-      if (!dst.description && src.description) dst.description = src.description;
-      for (const [k, v] of Object.entries(src.features || {})) if (!dst.features[k]) dst.features[k] = v;
-      delete out.softwares[found];
-    }
-  }
-  return out;
-}
-
-// Ranking normalizado 0..100 (penaliza advertencias)
-
-// --------- Categorización por área y ponderación ---------
-const AREA_RULES = [
-  { area: "Seguridad", test: /(seguridad|nerc|cip|ciber|antivirus|hardening|ldap|rbac|ntsycs)/ },
-  { area: "Redundancia", test: /(redundan|prp|hsr|servidor(es)? primario|backup|cluster|alta disponibilidad)/ },
-  { area: "Integración", test: /(integrac|protocolos|iec\s*61850|dnp3|modbus|opc|opc ua|iec\s*60870|104|mqtt)/ },
-];
-
-export function detectArea(featureName) {
-  const t = normalize(featureName);
-  for (const rule of AREA_RULES) {
-    if (rule.test.test(t)) return rule.area;
-  }
-  return "General";
-}
-
-// Pesos por área (pedido del cliente)
-export const DEFAULT_WEIGHTS = {
-  "Seguridad": 2.0,
-  "Redundancia": 1.5,
-  "Integración": 1.2,
-  "General": 1.0
-};
-
-// Scoring ponderado (0..2) con opcion "soloCriticos"
-export function weightedScoreForFeature(featureName, rawValue, weights=DEFAULT_WEIGHTS) {
-  const area = detectArea(featureName);
-  const w = weights[area] ?? 1.0;
-  const base = scoreValue(rawValue); // 0, 0.5, 1, 2
-  return {score: base, weight: w, area};
-}
-
-export function computeRadarRow(selectedNames, featureName, data, showAvg, weights=DEFAULT_WEIGHTS, soloCriticos=false) {
-  const area = detectArea(featureName);
-  const isCritical = (area==="Seguridad" || area==="Redundancia" || area==="Integración");
-  if (soloCriticos && !isCritical) return null;
-
-  const entry = { feature: featureName };
-  // Selected series
-  selectedNames.forEach(n => {
-    const v = data.softwares[n]?.features?.[featureName];
-    entry[n] = scoreValue(v); // render unweighted value (scale 0..2)
-  });
-  // Promedio de otros (unweighted display; weighting se usa en ranking)
-  if (showAvg) {
-    let sum=0, count=0;
-    Object.keys(data.softwares).forEach(n => {
-      if (selectedNames.includes(n)) return;
-      const v = data.softwares[n]?.features?.[featureName];
-      if (v!==undefined) { sum += scoreValue(v); count++; }
-    });
-    entry["Promedio otros"] = count? sum/count : 0;
-  }
-  entry._area = area;
-  entry._critical = isCritical;
-  return entry;
-}
-
-// Ranking normalizado 0..100 usando pesos por área y penalizando advertencias
-export function computeRanking(data, weights=DEFAULT_WEIGHTS, soloCriticos=false) {
-  const names = Object.keys(data.softwares || {});
-  const rows = names.map((n) => {
-    const feats = data.softwares[n]?.features || {};
-    let wsum = 0, sum = 0;
-    for (const [k,v] of Object.entries(feats)) {
-      const area = detectArea(k);
-      const isCritical = (area==="Seguridad" || area==="Redundancia" || area==="Integración");
-      if (soloCriticos && !isCritical) continue;
-      const w = weights[area] ?? 1.0;
-      const s = scoreValue(v); // 0,0.5,1,2
-      sum += w * s;
-      wsum += w * 2; // max for this feature with weight
-    }
-    const score = wsum ? (sum/wsum) : 0; // 0..1
-    const { pros, cautions, cons } = extractFindings(feats);
-    return { name: n, score: Number((score*100).toFixed(1)), pros, cautions, cons };
-  });
-  rows.sort((a,b)=> b.score - a.score);
+  rows.sort((a, b) => b.score - a.score);
   return rows;
 }
-
-
-// Reglas de ADVERTENCIAS DURAS (si machea, va a "A tener en cuenta")
-const HARD_WARN_RULES = [
-  // Curva de aprendizaje inicialmente compleja, con documentación que ayuda
-  { re: /curva de aprendizaje.*(inicialmente)?.*complej.*(pero)?.*documentaci(on|on) .*ayuda.*adapt/, note: "Curva de aprendizaje: inicialmente complejo, la documentación ayuda a adaptarse." },
-];
