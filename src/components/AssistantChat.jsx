@@ -1,75 +1,87 @@
-import React, { useState } from "react";
+// src/components/AssistantChat.jsx
+import React, { useState, useRef } from "react";
 import { askGemini } from "../lib/llm";
 
-const SYSTEM_PROMPT = `
-Eres un asistente experto en SCADA para el mercado chileno.
-Conoces NTSyCS, SITR, IEC 62443/61850/60870, prácticas de ciberseguridad,
-redundancia (PRP/HSR), soporte local, TCO, compatibilidad entre versiones y
-criterios para minería. Responde en español (Chile), claro y accionable.
-Cuando convenga, sugiere cómo verificar con documentación o pruebas.
-`;
+const SYSTEM = `Eres un asistente experto en SCADA para la industria eléctrica y minera en Chile.
+Conoces NTSyCS, SITR, IEC 62443, IEC 61850, protocolos (IEC 60870, DNP3, Modbus) y buenas prácticas.
+Entrega respuestas breves, con pasos accionables y advertencias ("red flags") cuando corresponda.
+Cuando te pidan ranking/recomendación, explica qué criterio usas y advierte que deben validarlo en pruebas.`;
 
 export default function AssistantChat() {
   const [messages, setMessages] = useState([
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "assistant", content: "Hola, soy tu asistente SCADA. ¿En qué te ayudo hoy?" },
+    { role: "assistant", content: "Hola, soy tu asistente SCADA. ¿Qué necesitas?" }
   ]);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const listRef = useRef(null);
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || busy) return;
+  const send = async (e) => {
+    e?.preventDefault();
+    const question = input.trim();
+    if (!question) return;
     setInput("");
-    const next = [...messages, { role: "user", content: text }];
-    setMessages(next);
-    setBusy(true);
-    const resp = await askGemini(next);
-    setBusy(false);
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: resp.text || "No pude generar respuesta." },
-    ]);
+    const next = [...messages, { role: "user", content: question }];
+    setMessages(next);
+    setLoading(true);
+    try {
+      const answer = await askGemini(question, {
+        systemPrompt: SYSTEM,
+        history: next.slice(0, -1),
+      });
+      setMessages([...next, { role: "assistant", content: answer || "(sin respuesta)" }]);
+    } catch (err) {
+      console.error(err);
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          content:
+            `No pude consultar el motor inteligente.\n\nDetalle: ${err?.message || err?.toString?.() || "error desconocido"}`,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+      setTimeout(() => listRef.current?.scrollTo?.(0, listRef.current.scrollHeight), 50);
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="space-y-3">
-        {messages
-          .filter((m) => m.role !== "system")
-          .map((m, i) => (
+    <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+      <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-4 space-y-3">
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "text-right" : ""}>
             <div
-              key={i}
               className={
-                m.role === "assistant"
-                  ? "rounded-xl bg-gray-50 p-3"
-                  : "rounded-xl bg-slate-900 text-white p-3 ml-auto max-w-[80%]"
+                "inline-block rounded-2xl px-3 py-2 " +
+                (m.role === "user"
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-50 border border-slate-200")
               }
-              style={m.role === "assistant" ? {} : { textAlign: "right" }}
             >
-              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.content}
             </div>
-          ))}
-        {busy && <div className="text-sm text-slate-500">Pensando…</div>}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-sm text-slate-500">Pensando…</div>
+        )}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <form onSubmit={send} className="flex gap-2 p-3 border-t bg-slate-50">
         <input
+          className="flex-1 rounded-xl border px-3 py-2 outline-none focus:ring"
+          placeholder="Pregúntame sobre NTSyCS, IEC 61850, ranking SCADA, etc."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          className="flex-1 border rounded-xl px-3 py-2"
-          placeholder="Pregunta (p.ej., ¿qué SCADA se adapta mejor a NTSyCS para subestaciones?)"
         />
         <button
-          onClick={send}
-          disabled={busy}
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-50"
+          disabled={loading}
+          className="rounded-xl px-4 py-2 bg-slate-900 text-white disabled:opacity-50"
         >
           Enviar
         </button>
-      </div>
+      </form>
     </div>
   );
 }

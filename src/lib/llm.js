@@ -1,55 +1,32 @@
-/**
- * src/lib/llm.js
- * Wrapper para Google Gemini (browser) con modelo configurable.
- * Requiere: npm i @google/generative-ai
- */
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const MODEL_ID = import.meta.env.VITE_GEMINI_MODEL || "gemini-2.5-flash";
-
-if (!API_KEY) {
-  console.warn("[LLM] Falta VITE_GEMINI_API_KEY en variables de entorno.");
-}
-
-/**
- * Estructura esperada de messages:
- * [{ role: "system"|"user"|"assistant", content: "texto" }, ...]
- */
-export async function askGemini(messages) {
-  if (!API_KEY) {
-    return { ok: false, text: "Nota: el servicio no está disponible (Missing VITE_GEMINI_API_KEY)." };
+// src/lib/llm.js
+// Gemini client for the browser using ESM CDN to avoid bundler issues on Netlify/Vite.
+export async function askGemini(prompt, { systemPrompt = "", history = [], temperature = 0.2 } = {}) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Falta VITE_GEMINI_API_KEY en las variables de entorno");
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: MODEL_ID });
+  // Use ESM CDN so we don't need to bundle @google/generative-ai
+  const { GoogleGenerativeAI } = await import("https://esm.run/@google/generative-ai");
 
-    // Convertimos al formato contents de Gemini
-    const contents = messages.map((m) => ({
-      role: m.role === "assistant" ? "model" : m.role, // Gemini usa 'model' en vez de 'assistant'
+  const modelId = import.meta.env.VITE_GEMINI_MODEL || "gemini-1.5-flash";
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: modelId,
+    // Optional system instruction to bias the assistant
+    systemInstruction: systemPrompt || undefined,
+  });
+
+  // Convert local history to Gemini format
+  const chat = model.startChat({
+    history: (history || []).map(m => ({
+      role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.content || "" }],
-    }));
+    })),
+    generationConfig: { temperature },
+  });
 
-    const result = await model.generateContent({
-      contents,
-      generationConfig: {
-        temperature: 0.6,
-        topK: 40,
-        topP: 0.9,
-        maxOutputTokens: 2048,
-      },
-    });
-
-    const text = result?.response?.text?.() ?? result?.response?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    if (!text) {
-      return { ok: false, text: "No hubo respuesta del modelo." };
-    }
-    return { ok: true, text };
-  } catch (err) {
-    console.error("[LLM] Gemini error:", err);
-    // Mensaje amigable
-    const msg = err?.message || JSON.stringify(err);
-    return { ok: false, text: `Nota: el servicio no está disponible (${msg}).` };
-  }
+  const result = await chat.sendMessage(prompt);
+  const text = result?.response?.text?.() ?? "";
+  return text;
 }
