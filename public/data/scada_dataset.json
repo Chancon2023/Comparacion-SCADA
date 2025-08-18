@@ -1,0 +1,50 @@
+{
+  "weights": {
+    "Ciberseguridad": 0.35,
+    "Redundancia": 0.25,
+    "Protocolos": 0.2,
+    "Compatibilidad con hardware": 0.2
+  },
+  "platforms": [
+    {
+      "id": "zenon",
+      "name": "zenon Energy Edition (NCS)",
+      "vendor": "COPA-DATA",
+      "features": {
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "ok",
+        "Compatibilidad con hardware": "ok"
+      },
+      "pros": [
+        "Plataforma unificada SCADA/DMS/GIS/Historian",
+        "Compatibilidad entre versiones garantizada",
+        "Acceso web/HTML5 nativo; HMI ergonómica"
+      ],
+      "cons": []
+    },
+    {
+      "id": "schneider_po",
+      "name": "Power Operation Schneider",
+      "vendor": "Schneider Electric",
+      "features": {
+        "Ciberseguridad": "media",
+        "Redundancia": "no",
+        "Protocolos": "media",
+        "Compatibilidad con hardware": "media"
+      },
+      "pros": [],
+      "cons": [
+        "Falla el driver IEC61850 MMS entre IEDs y SCADA",
+        "Logs llenan discos de los servidores",
+        "La redundancia no funciona",
+        "Herramienta para el desarrollo de pantallas HMI es deficiente",
+        "IEC61850 no soportado adecuadamente (driver no integra IEDs multimarcas)",
+        "Herramientas de configuración tediosas",
+        "Actualizaciones corrigen errores pero requieren procedimiento extenso",
+        "No cumple NTSyCS (agrupamientos con timestamp y puntos dobles)",
+        "Ningún caso de éxito IEC61850 reportado"
+      ]
+    }
+  ]
+}
