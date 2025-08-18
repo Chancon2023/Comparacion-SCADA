@@ -1,87 +1,74 @@
-// src/components/AssistantChat.jsx
-import React, { useState, useRef } from "react";
-import { askGemini } from "../lib/ai";
+import React, { useState } from "react";
+import { askAssistant } from "../lib/ai";
 
 export default function AssistantChat() {
   const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y mejores prácticas de selección. ¿Qué necesitas?",
-    },
+    { role: "model", text: "Hola, soy tu asistente SCADA. ¿Qué necesitas?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
+  const [note, setNote] = useState("");
 
-  const scrollToEnd = () => {
-    requestAnimationFrame(() => endRef.current?.scrollIntoView({ behavior: "smooth" }));
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    const q = (input || "").trim();
-    if (!q) return;
-
-    const next = [...messages, { role: "user", content: q }];
-    setMessages(next);
+  const send = async () => {
+    const content = input.trim();
+    if (!content) return;
     setInput("");
+    const next = [...messages, { role: "user", text: content }];
+    setMessages(next);
     setLoading(true);
+    setNote("");
 
     try {
-      const reply = await askGemini(next, q);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply || "…" }]);
+      // Llama a la function (asegura que el primer elemento sea 'user')
+      const startIndex = Math.max(0, next.findIndex(m => m.role === "user"));
+      const slice = startIndex >= 0 ? next.slice(startIndex) : next;
+      const answer = await askAssistant(slice, { temperature: 0.4 });
+      setMessages(prev => [...prev, { role: "model", text: answer || "(sin respuesta)" }]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "No pude consultar el motor inteligente. Detalle: " +
-            (err?.message || String(err)),
-        },
-      ]);
+      setMessages(prev => [...prev, { role: "model", text: `No pude consultar el motor inteligente. Detalle: ${err.message}` }]);
     } finally {
       setLoading(false);
-      scrollToEnd();
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow p-4 md:p-6 h-[70vh] flex flex-col">
-      <div className="flex-1 overflow-auto space-y-3 pr-1">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                m.role === "user"
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-900"
-              }`}
-            >
-              {m.content}
-            </div>
+    <div className="bg-white rounded-2xl shadow p-4 md:p-6">
+      {note && (
+        <div className="mb-3 text-xs px-3 py-2 rounded bg-amber-50 text-amber-900 border border-amber-200">
+          {note}
+        </div>
+      )}
+
+      <div className="space-y-3 mb-4 max-h-[55vh] overflow-y-auto">
+        {messages.map((m, idx) => (
+          <div
+            key={idx}
+            className={`px-3 py-2 rounded-xl max-w-[85%] ${
+              m.role === "user" ? "ml-auto bg-slate-900 text-white" : "bg-slate-100 text-slate-900"
+            }`}
+          >
+            {m.text}
           </div>
         ))}
-        <div ref={endRef} />
+        {loading && <div className="text-xs text-slate-500">Pensando…</div>}
       </div>
 
-      <form onSubmit={onSubmit} className="mt-3 flex gap-2">
+      <div className="flex items-center gap-2">
         <input
-          className="flex-1 rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-          placeholder="Haz una pregunta (p. ej.: ¿qué SCADA cumple mejor la NTSyCS para subestaciones?)"
+          className="flex-1 rounded-xl border px-3 py-2 outline-none"
+          placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={loading}
+          onKeyDown={(e) => e.key === "Enter" && send()}
         />
         <button
-          type="submit"
+          onClick={send}
+          className="px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-60"
           disabled={loading}
-          className="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800 disabled:opacity-60"
         >
-          {loading ? "Pensando…" : "Enviar"}
+          Enviar
         </button>
-      </form>
+      </div>
     </div>
   );
 }

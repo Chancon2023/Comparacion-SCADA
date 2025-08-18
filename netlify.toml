@@ -1,14 +1,8 @@
-[build]
-command = "npm run build"
-publish = "dist"
-
+# Netlify config para Assistant Gemini
 [functions]
-directory = "netlify/functions"
-node_bundler = "esbuild"
-included_files = ["public/data/**"]
-external_node_modules = ["openai"]
+  node_bundler = "esbuild"
 
 [[redirects]]
-from = "/api/*"
-to = "/.netlify/functions/:splat"
-status = 200
+  from = "/api/assistant"
+  to   = "/.netlify/functions/assistant-gemini"
+  status = 200

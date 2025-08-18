@@ -2,7 +2,7 @@
 // Usage: POST /netlify/functions/assist  with {messages:[{role:'user'|'assistant'|'system', content:'...'}]}
 // Reads GEMINI_API_KEY from env. Doesn't expose your key to the client.
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const API_KEY = process.env.GEMINI_API_KEY;
 
 // Helper: build Gemini "contents" and optional systemInstruction
