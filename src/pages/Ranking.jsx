@@ -85,3 +85,8 @@ export default function Ranking() {
     </div>
   );
 }
+// al tope del archivo
+import MiningConclusion from "../components/MiningConclusion";
+
+// ...dentro del JSX, al final
+<MiningConclusion />
