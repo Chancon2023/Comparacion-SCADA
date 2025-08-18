@@ -1,13 +1,20 @@
-/* utils.js – perfil minería + marcadores + reglas duras
- * Drop-in para v3.7.1. Expone:
- *  - analyzeText(text)
- *  - scoreFeature(name, text, opts)
- *  - computeRanking(softwares, opts)
- *  - MINING_WEIGHTS, CRITICAL_KEYS (por si se usan en otras vistas)
- *  - Helpers genéricos (groupBy, sum, toCSV, downloadBlob, formatNumber)
+/* utils.js – Perfil minería + compatibilidad v3.7.1 (Home/Charts/Radar)
+ *
+ * Exports nuevos + compat:
+ *  - COLORS, scoreValue, prepareData, classForCell
+ *  - computeRadarRow(text)        -> número 0..2 para radar
+ *  - extractFindings(text)        -> { tag:'pro'|'con'|'warn'|'note', hardNeg:boolean, text:string }
+ *  - analyzeText, scoreFeature, computeRanking, MINING_WEIGHTS, CRITICAL_KEYS, helpers
  */
 
-// ========= Marcadores en español / emojis =========
+// ========= Paleta para charts =========
+export const COLORS = [
+  "#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#8B5CF6",
+  "#10B981", "#0EA5E9", "#F97316", "#22D3EE", "#84CC16",
+  "#A855F7", "#334155"
+];
+
+// ========= Marcadores =========
 export const POS_MARKERS = [
   "✔",
   /\balta\b/i,
@@ -40,34 +47,21 @@ export const NEG_MARKERS = [
   /no disponible/i
 ];
 
-// ========= Reglas duras (negativas obligatorias) =========
+// ========= Reglas duras =========
 export const HARD_NEG_RULES = [
-  // IEC 61850 / MMS / integración IED
   { label: "IEC61850 MMS falla", re: /(falla|no funciona).*(iec\s*61850|mms)/i },
   { label: "No soporta IEC61850 bien", re: /(iec\s*61850).*(no (soporta|capaz)|no integra.*(ied|marcas))/i },
   { label: "Sin casos de éxito IEC61850", re: /ning[uú]n caso de [éE]xito.*iec\s*61850/i },
-
-  // Redundancia
   { label: "Redundancia no funciona", re: /la redundancia no funciona/i },
-
-  // Logs llenan disco servidores
   { label: "Logs llenan disco", re: /(logs|ogs).*(llenan|llenado).*(discos|disco).*(servidores)/i },
-
-  // HMI deficiente
   { label: "HMI deficiente", re: /herramienta.*(desarrollo).*hmi.*(deficiente|no adecuada)/i },
-
-  // Config tediosa
   { label: "Config tediosa", re: /herramientas de configuraci[oó]n.*tediosas/i },
-
-  // Actualizaciones problemáticas
   { label: "Parches/updates problemáticos", re: /(actualizaciones|parches).*(no funcionan|requieren.*procedimiento.*extenso|complejo)/i },
-
-  // NTSyCS / timestamp / agrupamientos
   { label: "No cumple NTSyCS", re: /no cumple.*ntsycs/i },
   { label: "No agrupa señales con timestamp", re: /(no (agrupa|mantiene).*(estampa|timestamp))|(no.*transformaci[oó]n.*puntos.*simples.*dobles)/i },
 ];
 
-// ========= Pesos específicos para perfil minería =========
+// ========= Pesos minería =========
 export const MINING_WEIGHTS = {
   "Adaptación a minería": 2.0,
   "Integración de subestaciones": 2.0,
@@ -78,11 +72,9 @@ export const MINING_WEIGHTS = {
   "Configuración y mantenimiento": 1.6,
   "Acceso remoto/web": 1.4,
   "Costo total de propiedad (TCO)": 1.4,
-  // fallback para claves similares
   "Protocolos soportados": 1.8,
 };
 
-// ========= Claves críticas para CAP duro =========
 export const CRITICAL_KEYS = new Set([
   "Adaptación a minería",
   "Integración de subestaciones",
@@ -113,66 +105,89 @@ export function downloadBlob(filename, content, mime="text/plain") {
   URL.revokeObjectURL(url);
 }
 
-// ========= Análisis de texto =========
+// ========= Análisis =========
 export function analyzeText(text) {
   if (!text) return { pos: 0, warn: 0, neg: 0, hardNeg: false };
-
   const t = String(text).toLowerCase();
-
   const has = (arr) => arr.some(r => typeof r === "string" ? t.includes(r.toLowerCase()) : r.test(t));
-
   const pos  = has(POS_MARKERS)  ? 1 : 0;
   const warn = has(WARN_MARKERS) ? 1 : 0;
   let   neg  = has(NEG_MARKERS)  ? 1 : 0;
-
-  // Reglas duras
   const hardNeg = HARD_NEG_RULES.some(rule => rule.re.test(t));
   if (hardNeg) neg = Math.max(neg, 1);
-
   return { pos, warn, neg, hardNeg };
 }
 
 // ========= Scoring por feature =========
 export function scoreFeature(featName, text, opts = {}) {
   const { pos, warn, neg, hardNeg } = analyzeText(text);
-  // Base simple: pos=1, warn=0.5, neg=0, neutro 0.25 si no hay nada
   const base = pos ? 1 : warn ? 0.5 : neg ? 0 : 0.25;
-
   const profile = opts.profile || "mining";
   const w = profile === "mining" && MINING_WEIGHTS[featName] ? MINING_WEIGHTS[featName] : 1.0;
-
   return { value: base * w, weight: w, hardNeg };
 }
 
-// ========= Ranking por software =========
+// ========= Ranking =========
 export function computeRanking(softwares, opts = {}) {
   const profile = opts.profile || "mining";
   const rows = [];
-
   for (const [name, node] of Object.entries(softwares || {})) {
-    let total = 0;
-    let wsum = 0;
-    let hasHardNegCritical = false;
-
+    let total = 0, wsum = 0, hasHardNegCritical = false;
     const feats = node?.features || {};
     for (const [featName, comment] of Object.entries(feats)) {
       const { value, weight, hardNeg } = scoreFeature(featName, comment, { profile });
-      total += value;
-      wsum += weight;
-
-      if (hardNeg && CRITICAL_KEYS.has(featName)) {
-        hasHardNegCritical = true;
-      }
+      total += value; wsum += weight;
+      if (hardNeg && CRITICAL_KEYS.has(featName)) hasHardNegCritical = true;
     }
-
     let score = wsum > 0 ? (total / wsum) * 100 : 0;
-
-    // CAP duro si hay alertas críticas
     if (hasHardNegCritical) score = Math.min(score, 60);
-
     rows.push({ name, score: formatNumber(score, 1) });
   }
-
   rows.sort((a, b) => b.score - a.score);
   return rows;
+}
+
+// ========= Compatibilidad v3.7.1 =========
+export function prepareData(data) {
+  return data;
+}
+
+export function classForCell(value) {
+  const v = String(value ?? "").toLowerCase();
+
+  const POS = "bg-emerald-50 text-emerald-800 border border-emerald-200";
+  const WARN = "bg-amber-50 text-amber-900 border border-amber-200";
+  const NEG = "bg-rose-50 text-rose-900 border border-rose-200";
+  const NEU = "bg-slate-50 text-slate-600 border border-slate-200";
+
+  if (/[✔✓]\b|alta\b|nativa|agn[oó]stic|bajo.*tco|smart objects|hot-?standby|prp|hsr|iec\s*62443|html5/i.test(v)) {
+    return POS;
+  }
+  if (/⚠|media\b|requiere (personalizaci[oó]n|ingenier[íi]a|desarrollo|servicios externos|c[oó]digo)|variable seg[uú]n/i.test(v)) {
+    return WARN;
+  }
+  if (/❌|no nat|dependiente de su propio hardware|costoso|licenciamiento complejo|migraciones costosas|limitada.*reingenier|no disponible/i.test(v)) {
+    return NEG;
+  }
+  return NEU;
+}
+
+/** Puntuación simple 0–2 usada por algunos gráficos antiguos (v3.7.1). */
+export function scoreValue(text) {
+  const { pos, warn, neg } = analyzeText(text);
+  if (pos) return 2;
+  if (neg) return 0;
+  return 1; // media / neutro
+}
+
+/** Wrapper simple usado por RadarDetail.jsx (firma compatible). */
+export function computeRadarRow(text) {
+  return scoreValue(text);
+}
+
+/** Extrae una etiqueta básica para pros/cons del radar detallado. */
+export function extractFindings(text) {
+  const a = analyzeText(text);
+  const tag = a.pos ? "pro" : a.neg ? "con" : a.warn ? "warn" : "note";
+  return { tag, hardNeg: a.hardNeg, text: text || "" };
 }
