@@ -1,85 +1,85 @@
 // src/components/AssistantChat.jsx
 import React, { useState, useRef } from "react";
-import { askGemini } from "../lib/llm";
-
-const SYSTEM = `Eres un asistente experto en SCADA para la industria eléctrica y minera en Chile.
-Conoces NTSyCS, SITR, IEC 62443, IEC 61850, protocolos (IEC 60870, DNP3, Modbus) y buenas prácticas.
-Entrega respuestas breves, con pasos accionables y advertencias ("red flags") cuando corresponda.
-Cuando te pidan ranking/recomendación, explica qué criterio usas y advierte que deben validarlo en pruebas.`;
+import { askGemini } from "../lib/ai";
 
 export default function AssistantChat() {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hola, soy tu asistente SCADA. ¿Qué necesitas?" }
+    {
+      role: "assistant",
+      content:
+        "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y mejores prácticas de selección. ¿Qué necesitas?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const listRef = useRef(null);
+  const endRef = useRef(null);
 
-  const send = async (e) => {
-    e?.preventDefault();
-    const question = input.trim();
-    if (!question) return;
-    setInput("");
+  const scrollToEnd = () => {
+    requestAnimationFrame(() => endRef.current?.scrollIntoView({ behavior: "smooth" }));
+  };
 
-    const next = [...messages, { role: "user", content: question }];
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const q = (input || "").trim();
+    if (!q) return;
+
+    const next = [...messages, { role: "user", content: q }];
     setMessages(next);
+    setInput("");
     setLoading(true);
+
     try {
-      const answer = await askGemini(question, {
-        systemPrompt: SYSTEM,
-        history: next.slice(0, -1),
-      });
-      setMessages([...next, { role: "assistant", content: answer || "(sin respuesta)" }]);
+      const reply = await askGemini(next, q);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply || "…" }]);
     } catch (err) {
-      console.error(err);
-      setMessages([
-        ...next,
+      setMessages((prev) => [
+        ...prev,
         {
           role: "assistant",
           content:
-            `No pude consultar el motor inteligente.\n\nDetalle: ${err?.message || err?.toString?.() || "error desconocido"}`,
+            "No pude consultar el motor inteligente. Detalle: " +
+            (err?.message || String(err)),
         },
       ]);
     } finally {
       setLoading(false);
-      setTimeout(() => listRef.current?.scrollTo?.(0, listRef.current.scrollHeight), 50);
+      scrollToEnd();
     }
   };
 
   return (
-    <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-      <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-4 space-y-3">
+    <div className="bg-white rounded-2xl shadow p-4 md:p-6 h-[70vh] flex flex-col">
+      <div className="flex-1 overflow-auto space-y-3 pr-1">
         {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "text-right" : ""}>
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
-              className={
-                "inline-block rounded-2xl px-3 py-2 " +
-                (m.role === "user"
+              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                m.role === "user"
                   ? "bg-slate-900 text-white"
-                  : "bg-slate-50 border border-slate-200")
-              }
+                  : "bg-slate-100 text-slate-900"
+              }`}
             >
               {m.content}
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="text-sm text-slate-500">Pensando…</div>
-        )}
+        <div ref={endRef} />
       </div>
 
-      <form onSubmit={send} className="flex gap-2 p-3 border-t bg-slate-50">
+      <form onSubmit={onSubmit} className="mt-3 flex gap-2">
         <input
-          className="flex-1 rounded-xl border px-3 py-2 outline-none focus:ring"
-          placeholder="Pregúntame sobre NTSyCS, IEC 61850, ranking SCADA, etc."
+          className="flex-1 rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+          placeholder="Haz una pregunta (p. ej.: ¿qué SCADA cumple mejor la NTSyCS para subestaciones?)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          disabled={loading}
         />
         <button
+          type="submit"
           disabled={loading}
-          className="rounded-xl px-4 py-2 bg-slate-900 text-white disabled:opacity-50"
+          className="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800 disabled:opacity-60"
         >
-          Enviar
+          {loading ? "Pensando…" : "Enviar"}
         </button>
       </form>
     </div>
