@@ -1,121 +1,91 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { COLORS, scoreValue, prepareData } from "../components/utils";
-import supabase from "../lib/supabase";
+import { classForCell, scoreValue } from "../components/utils";
 
-const CRITICAL = ["Ciberseguridad", "Redundancia", "Protocolos", "Compatibilidad con hardware"];
+const DATA_URL = "/data/scada_dataset.json";
 
 export default function RadarDetail() {
-  const [data, setData] = useState(null);
-  const [selected, setSelected] = useState([]);
-  const [onlyCritical, setOnlyCritical] = useState(false);
-  const [weights, setWeights] = useState(null);
+  const [raw, setRaw] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [error, setError] = useState(null);
 
-  // dataset: intenta primero Supabase (tabla datasets, col json 'payload'), si falla usa /data/scada_dataset.json
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    let alive = true;
+    async function load() {
       try {
-        let payload = null;
-        if (supabase) {
-          const { data: rows, error } = await supabase
-            .from("datasets")
-            .select("payload")
-            .eq("name", "scada_dataset")
-            .limit(1)
-            .maybeSingle();
-          if (!error && rows && rows.payload) {
-            payload = rows.payload;
-          }
-        }
-        if (!payload) {
-          const res = await fetch("/data/scada_dataset.json", { cache: "no-store" });
-          if (res.ok) payload = await res.json();
-        }
-        if (!cancelled) setData(prepareData(payload));
+        const res = await fetch(DATA_URL);
+        if (!res.ok) throw new Error("No se pudo leer scada_dataset.json");
+        const d = await res.json();
+        if (!alive) return;
+        setRaw(d);
+        // por defecto primera plataforma
+        const first = (d.platforms && d.platforms[0]?.name) || null;
+        setSelected(first);
       } catch (e) {
-        console.error("[RadarDetail] Carga dataset:", e);
-        if (!cancelled) setData(prepareData(null));
+        console.error(e);
+        setError(e.message);
       }
-    })();
-    return () => (cancelled = true);
+    }
+    load();
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  // pesos (Supabase tabla weights)
-  useEffect(() => {
-    (async () => {
-      try {
-        if (supabase) {
-          const { data: rows, error } = await supabase.from("weights").select("*").limit(1).maybeSingle();
-          if (!error && rows) {
-            setWeights(rows);
-          }
-        }
-      } catch (e) {
-        console.warn("[RadarDetail] No se pudieron cargar pesos:", e);
-      }
-    })();
-  }, []);
+  const platforms = useMemo(() => raw?.platforms || [], [raw]);
+  const platform = useMemo(
+    () => platforms.find((p) => p.name === selected) || platforms[0],
+    [platforms, selected]
+  );
+  const features = useMemo(
+    () => (raw?.features && Array.isArray(raw.features) ? raw.features : Object.keys(platform?.features || {})),
+    [raw, platform]
+  );
 
-  const features = useMemo(() => {
-    if (!data) return [];
-    const feats = data.features.map(f => f.name);
-    return onlyCritical ? feats.filter(n => CRITICAL.some(c => n.toLowerCase().includes(c.toLowerCase()))) : feats;
-  }, [data, onlyCritical]);
+  if (error) {
+    return (
+      <div className="p-6 text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+        Error cargando datos: {error}
+      </div>
+    );
+  }
 
-  const chartData = useMemo(() => {
-    if (!data || !data.platforms) return [];
-    const chosen = selected.length ? selected : data.platforms.slice(0,3).map(p => p.name);
-    return chosen.map((name, idx) => {
-      const platform = data.platforms.find(p => p.name === name);
-      const entry = { subject: name, fullMark: 100, fill: COLORS[idx % COLORS.length] };
-      (features || []).forEach(featName => {
-        const raw = platform?.scores?.[featName] ?? 0;
-        const w = weights?.[featName] ?? 1;
-        entry[featName] = scoreValue(raw) * w;
-      });
-      return entry;
-    });
-  }, [data, features, selected, weights]);
-
-  if (!data) return <div className="p-6">Cargando…</div>;
+  if (!platform) {
+    return <div className="p-6">Cargando…</div>;
+  }
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        {(data.platforms || []).map(p => {
-          const active = selected.includes(p.name);
-          return (
-            <button
-              key={p.name}
-              className={"px-3 py-1 rounded-full border " + (active ? "bg-blue-600 text-white" : "bg-white")}
-              onClick={() => {
-                setSelected(prev => active ? prev.filter(x => x !== p.name) : [...prev, p.name].slice(-3));
-              }}
-            >
+    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          Detalle por plataforma
+        </h1>
+        <select
+          className="px-3 py-2 rounded-xl border border-slate-300 bg-white"
+          value={selected || ""}
+          onChange={(e) => setSelected(e.target.value)}
+        >
+          {platforms.map((p) => (
+            <option key={p.name} value={p.name}>
               {p.name}
-            </button>
-          );
-        })}
-        <label className="ml-auto flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={onlyCritical} onChange={e => setOnlyCritical(e.target.checked)} />
-          Solo ítems críticos
-        </label>
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="h-[520px] w-full bg-white rounded-2xl shadow p-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={chartData}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="subject" />
-            <PolarRadiusAxis angle={30} domain={[0, 100]} />
-            {chartData.map((_, idx) => (
-              <Radar key={idx} dataKey={features[idx % features.length]} stroke={COLORS[idx % COLORS.length]} fill={COLORS[idx % COLORS.length]} fillOpacity={0.35} />
-            ))}
-            <Tooltip />
-            <Legend />
-          </RadarChart>
-        </ResponsiveContainer>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+        <h2 className="text-lg md:text-xl font-semibold mb-3">{platform.name}</h2>
+        <div className="grid md:grid-cols-2 gap-3">
+          {features.map((f) => {
+            const v = platform.features?.[f];
+            const cls = classForCell(v);
+            return (
+              <div key={f} className={`rounded-xl px-3 py-2 ${cls}`}>
+                <div className="text-sm font-medium">{f}</div>
+                <div className="text-sm opacity-80">{String(v)}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
