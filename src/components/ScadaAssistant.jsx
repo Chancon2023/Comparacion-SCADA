@@ -1,135 +1,259 @@
-// src/components/ScadaAssistant.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { SAMPLE_DATASET, RED_FLAGS, RED_FLAG_PENALTY, normalizeWeights } from "../lib/assistant/rules";
 
-const bubble = "rounded-2xl px-4 py-2 shadow";
+/**
+ * ScadaAssistant.jsx
+ * Chat sencillo en el navegador (sin backend) orientado a recomendar SCADA
+ * basado en reglas y en el dataset /data/scada_dataset.json (si existe).
+ *
+ * - No necesita dependencias adicionales
+ * - Seguro para Netlify (funciona con history fallback)
+ */
+
+// Reglas/ponderaciones editables
+const RULES = {
+  criticalWeights: {
+    Ciberseguridad: 0.35,
+    Redundancia: 0.25,
+    Protocolos: 0.2,
+    "Compatibilidad con hardware": 0.2,
+  },
+  redFlags: [
+    /IEC\s*61850.*(no\s+soportado|driver.*falla|inestable)/i,
+    /redundancia.*(no\s+funciona|deficiente)/i,
+    /herramienta.*HMI.*(deficiente|pobre)/i,
+    /actualizaciones.*(problemas|no\s+funcionan|engorroso)/i,
+  ],
+  preferredForMining: [/zenon/i, /energy\s*edition/i],
+};
+
+function cls(...xs){return xs.filter(Boolean).join(" ");}
 
 export default function ScadaAssistant() {
-  const [dataset, setDataset] = useState(SAMPLE_DATASET);
-  const [loadingData, setLoadingData] = useState(true);
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "¡Hola! Soy tu asistente SCADA. Cuéntame los requisitos: ciberseguridad/IEC 62443, IEC 61850, redundancia (HSR/PRP), minería, dashboards web, etc. Con eso te recomiendo plataformas y explico el porqué."
-    }
+      content:
+        "Hola 👋 Soy tu asistente para seleccionar SCADA. Cuéntame tu contexto (minería, subestaciones, integración IEC 61850, NTSyCS/SITR, etc.) y lo analizamos.",
+    },
   ]);
   const [input, setInput] = useState("");
-  const listRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const datasetRef = useRef(null);
 
+  // Carga opcional del dataset público
   useEffect(() => {
-    async function load() {
-      try {
-        // si existe /data/scada_dataset.json lo usamos
-        const res = await fetch("/data/scada_dataset.json", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          // esperamos un array con objetos {name, features:{seguridad, ...}, comentarios[]}
-          if (Array.isArray(data) && data.length > 0) {
-            setDataset(data);
+    const tryLoad = async () => {
+      const urls = [
+        "/data/scada_dataset.json",
+        "/data/scada_dataset_mining_extended.json",
+        "/data/dataset.json",
+      ];
+      for (const u of urls) {
+        try {
+          const r = await fetch(u, { cache: "no-store" });
+          if (r.ok) {
+            const json = await r.json();
+            datasetRef.current = json;
+            break;
           }
-        }
-      } catch(e) {
-        // fallback al SAMPLE_DATASET
-      } finally {
-        setLoadingData(false);
+        } catch {}
       }
-    }
-    load();
+    };
+    tryLoad();
   }, []);
 
-  useEffect(() => {
-    // autoscroll
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const onSend = (e) => {
+  const send = async (e) => {
     e.preventDefault();
-    const text = input.trim();
-    if (!text) return;
-    setMessages((prev) => [...prev, { role: "user", text }]);
+    if (!input.trim()) return;
+    const userMsg = { role: "user", content: input.trim() };
+    setMessages((m) => [...m, userMsg]);
     setInput("");
-    const reply = computeReply(text, dataset);
-    setMessages((prev) => [...prev, reply]);
+    setLoading(true);
+    try {
+      const answer = await answerQuestion(userMsg.content, datasetRef.current);
+      setMessages((m) => [...m, { role: "assistant", content: answer }]);
+    } catch (err) {
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content:
+            "Ups, tuve un problema procesando la consulta. Intenta de nuevo, por favor.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="w-full bg-white rounded-2xl border border-slate-200">
-      <div className="h-80 overflow-y-auto p-4 space-y-3" ref={listRef}>
-        {messages.map((m, idx) => (
-          <div key={idx} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`${bubble} ${m.role === "user" ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-800"}`} style={{maxWidth:"80%"}}>
-              {m.text.split("\n").map((line,i)=>(<p key={i} className="whitespace-pre-wrap">{line}</p>))}
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="rounded-2xl border bg-white shadow p-4 md:p-6 min-h-[60vh] flex flex-col">
+        <div className="flex items-center gap-2 pb-3 border-b">
+          <div className="h-9 w-9 rounded-full bg-sky-600 text-white grid place-items-center font-bold">AI</div>
+          <div>
+            <div className="font-semibold">Asistente SCADA</div>
+            <div className="text-sm text-slate-500">
+              Basado en reglas + dataset local (si existe). Sin backend.
             </div>
           </div>
-        ))}
-        {loadingData && (
-          <div className="text-sm text-slate-500">Cargando dataset…</div>
-        )}
+        </div>
+
+        <div className="flex-1 overflow-auto py-4 space-y-3">
+          {messages.map((m, i) => (
+            <Bubble key={i} role={m.role} text={m.content} />
+          ))}
+          {loading && <Bubble role="assistant" text="Pensando..." />}
+        </div>
+
+        <form onSubmit={send} className="pt-3 border-t flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ej: Necesito SCADA para minería con IEC 61850 y NTSyCS..."
+            className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+          <button
+            disabled={loading}
+            className="rounded-xl bg-sky-600 text-white px-4 py-2 hover:bg-sky-700 disabled:opacity-60"
+          >
+            Enviar
+          </button>
+        </form>
       </div>
-      <form onSubmit={onSend} className="p-3 border-t border-slate-200 flex gap-2">
-        <input
-          className="flex-1 rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
-          value={input}
-          onChange={(e)=>setInput(e.target.value)}
-          placeholder="Escribe tus requisitos… (Enter para enviar)"
-        />
-        <button className="rounded-xl bg-slate-900 text-white px-4 py-2 hover:bg-slate-800" type="submit">
-          Enviar
-        </button>
-      </form>
+
+      <div className="text-xs text-slate-500 mt-3">
+        Nota: Este asistente usa heurísticas y tu dataset local. Para consultas normativas,
+        valida siempre con NTSyCS (SEC), SITR/Coordinador y normas IEC aplicables.
+      </div>
     </div>
   );
 }
 
-function computeReply(text, dataset) {
-  const weights = normalizeWeights(text);
-  const scored = dataset.map(p => scorePlatform(p, weights));
-  scored.sort((a,b)=>b.total - a.total);
-
-  const top = scored.slice(0,3);
-  const lines = [];
-  lines.push("Recomendación (ponderada por tus requisitos):");
-  top.forEach((t, i) => {
-    const rank = i+1;
-    const redCount = t.redFlagsTriggered.length;
-    lines.push(` ${rank}. ${t.name} — Puntaje ${t.total.toFixed(1)}/100` + (redCount>0 ? `  ⚠️ ${redCount} alertas` : ""));
-    lines.push(`    • Seguridad: ${t.features.seguridad}  • Redundancia: ${t.features.redundancia}  • Protocolos: ${t.features.protocolos}`);
-    if (t.explain.length) lines.push(`    • Motivos: ${t.explain.join("; ")}`);
-    if (redCount>0) {
-      lines.push(`    • Red flags: ${t.redFlagsTriggered.join(" | ")}`);
-    }
-  });
-
-  lines.push("");
-  lines.push("Nota: si subes tu dataset real en /public/data/scada_dataset.json, el asistente lo usará automáticamente.");
-  return { role: "assistant", text: lines.join("\n") };
+function Bubble({ role, text }) {
+  const mine = role === "user";
+  return (
+    <div className={cls("flex", mine ? "justify-end" : "justify-start")}>
+      <div
+        className={cls(
+          "max-w-[85%] rounded-2xl px-4 py-2 whitespace-pre-wrap",
+          mine ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-900"
+        )}
+      >
+        {text}
+      </div>
+    </div>
+  );
 }
 
-function scorePlatform(p, weights) {
-  const features = p.features || {};
+// Motor de respuesta súper simple (reglas + dataset si existe)
+async function answerQuestion(q, dataset) {
+  const qLower = q.toLowerCase();
+  let hints = [];
+
+  // Preferencias por minería
+  if (/min(ería|eria)/i.test(q)) {
+    hints.push("Para minería, prioriza plataformas unificadas (SCADA+DMS+GIS+Historian) y alta escalabilidad.");
+  }
+  // IEC 61850
+  if (/61850|iec\s*61850/i.test(q)) {
+    hints.push("Verifica soporte IEC 61850 MMS/GOOSE/SV. Revisa estabilidad del driver y pruebas de interoperabilidad multi-marca.");
+  }
+  // NTSyCS / SITR
+  if (/ntsycs|sitr|normativa|sec|coordinador/i.test(qLower)) {
+    hints.push("Valida cumplimiento NTSyCS/SEC y requisitos SITR/Coordinador (trazabilidad, sincronización, time-stamp por agrupamiento).");
+  }
+
+  // Si existe dataset, tratamos de proponer candidatos
+  let candidatesText = "";
+  if (dataset && Array.isArray(dataset.platforms)) {
+    const scored = scoreWithDataset(dataset, qLower).slice(0, 3);
+    if (scored.length) {
+      candidatesText =
+        "Candidatos sugeridos (top 3):\n" +
+        scored
+          .map(
+            (x, i) =>
+              `${i + 1}. ${x.name} — score ${Math.round(x.score * 100) / 100}`
+          )
+          .join("\n");
+    }
+  }
+
   const base =
-    (features.seguridad || 0) * (weights.seguridad || 0) +
-    (features.redundancia || 0) * (weights.redundancia || 0) +
-    (features.protocolos || 0) * (weights.protocolos || 0) +
-    (features.mantenimiento || 0) * (weights.mantenimiento || 0) +
-    (features.web || 0) * (weights.web || 0);
+    "Resumen:\n" +
+    (hints.length ? "- " + hints.join("\n- ") + "\n" : "") +
+    (candidatesText || "Sin dataset cargado, así que doy recomendaciones generales.") +
+    "\n\n" +
+    "Checklist mínimo:\n" +
+    "1) Ciberseguridad (IEC 62443), hardening, gestión de parches.\n" +
+    "2) Redundancia (servidores/medios/red), RTO/RPO.\n" +
+    "3) Protocolos (IEC 61850, 60870-5-101/104, DNP3, Modbus) con drivers estables.\n" +
+    "4) Integración con GIS/Historians/IMS, y compatibilidad entre versiones.\n" +
+    "5) Soporte local y SLA claros; documentación y capacitación.\n";
 
-  const name = p.name || "";
-  const flags = RED_FLAGS[name] || [];
-  const triggered = flags.filter(f => true); // si existen, se consideran
-  const penalty = triggered.length * RED_FLAG_PENALTY;
-  const total = Math.max(0, Math.min(100, base - penalty));
+  return base;
+}
 
-  // explicación simple
-  const explain = [];
-  const pick = (k, label)=>{ if ((p.features?.[k]||0) >= 85) explain.push(`${label} alto`); };
-  pick("seguridad","Seguridad");
-  pick("redundancia","Redundancia");
-  pick("protocolos","Protocolos");
-  pick("web","Web");
-  pick("mantenimiento","Mantenimiento");
+function scoreWithDataset(dataset, qLower) {
+  const crit = RULES.criticalWeights;
+  const platforms = dataset.platforms || [];
+  const arr = [];
 
-  return { ...p, total, explain, redFlagsTriggered: triggered };
+  for (const p of platforms) {
+    const name = p.name || p.platform || "Desconocido";
+    const f = p.features || p.characteristics || {};
+    const comments = (p.comments || []).join(" ");
+    const pros = (p.pros || []).join(" ");
+    const cons = (p.cons || []).join(" ");
+    const textBlob = [name, comments, pros, cons].join(" ").toLowerCase();
+
+    // Puntuación base por criterios críticos (si el dataset trae 0..100 o true/false)
+    let score = 0;
+    const ciber = numLike(f["Ciberseguridad"]);
+    const redund = numLike(f["Redundancia"]);
+    const prot = numLike(f["Protocolos"]);
+    const hw = numLike(f["Compatibilidad con hardware"]);
+
+    score += ciber * (crit.Ciberseguridad || 0);
+    score += redund * (crit.Redundancia || 0);
+    score += prot * (crit.Protocolos || 0);
+    score += hw * (crit["Compatibilidad con hardware"] || 0);
+
+    // Penaliza red flags
+    for (const re of RULES.redFlags) {
+      if (re.test(textBlob)) score -= 20;
+    }
+
+    // Bonus si pregunta menciona minería y el nombre encaja
+    if (/min(ería|eria)/i.test(qLower)) {
+      if (RULES.preferredForMining.some((re) => re.test(name))) score += 10;
+    }
+
+    arr.push({ name, score, raw: p });
+  }
+
+  // Plus si coincide con keywords en la pregunta
+  for (const x of arr) {
+    const nameLower = x.name.toLowerCase();
+    if (qLower.includes("zenon") && nameLower.includes("zenon")) x.score += 5;
+    if (qLower.includes("schneider") && nameLower.includes("schneider")) x.score += 2;
+  }
+
+  arr.sort((a, b) => b.score - a.score);
+  return arr;
+}
+
+function numLike(v) {
+  if (v == null) return 0;
+  if (typeof v === "boolean") return v ? 100 : 0;
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const m = v.match(/(\d+(\.\d+)?)\s*%?/);
+    if (m) return parseFloat(m[1]);
+    if (/alto|alta|yes|si|true/i.test(v)) return 100;
+    if (/medio/i.test(v)) return 60;
+    if (/bajo|baja|no|false/i.test(v)) return 20;
+  }
+  return 0;
 }
