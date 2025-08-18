@@ -1,40 +1,31 @@
-# SCADA Live Patch (Supabase + Radar loader)
+# Patch sin Supabase ni jspdf (solo reemplazar)
+Este paquete contiene archivos listos para **reemplazar** en tu proyecto Vite (v3.7.1).
 
-Este paquete contiene **3 archivos** listos para reemplazar/añadir en tu proyecto (Vite + React).
+## Qué incluye
+- `index.html` — limpio (sin CDNs). **Reemplaza** tu `index.html` en la raíz del proyecto.
+- `src/components/MiningConclusion.jsx` — componente listo que **no usa dependencias externas** (imprime la sección y permite “Guardar como PDF” desde el diálogo de impresión del navegador).
 
-## Archivos
-- `src/lib/supabase.js`  → cliente y helpers (weights/reviews)
-- `src/pages/Ranking.jsx` → ranking leyendo **pesos + reseñas** en vivo
-- `src/pages/RadarDetail.jsx` → carga dataset por `fetch` (sin import estático) y pondera por pesos
-
-## Pasos
-1) Copia estas rutas en tu repo respetando el árbol `src/...`.
-2) Asegura dependencia:
+## Cómo usar
+1) Copia `index.html` a la raíz del repo (reemplaza el actual).
+2) Copia `src/components/MiningConclusion.jsx` dentro de tu proyecto.
+3) Abre `src/pages/Ranking.jsx` y asegúrate de:
+   - **Quitar** cualquier `import "jspdf"` o `import "html2canvas"`.
+   - **Quitar** cualquier referencia a Supabase (`import supabase from "../lib/supabase"`), si permanece por error.
+   - **Agregar**:
+     ```jsx
+     import MiningConclusion from "../components/MiningConclusion";
+     ```
+   - Y en el JSX, **debajo de la lista/tabla** del ranking:
+     ```jsx
+     <MiningConclusion />
+     ```
+4) Asegúrate de no tener ningún `<script src="https://...jspdf...">` en `index.html`.
+5) Ejecuta:
    ```bash
-   npm i @supabase/supabase-js
+   npm ci
+   npm run build
    ```
-3) En Netlify (o `.env.local`) define:
-   ```env
-   VITE_SUPABASE_URL=...
-   VITE_SUPABASE_ANON_KEY=...
-   VITE_ADMIN_EMAIL=sebastian.contreras@krontec.cl
-   ```
-4) Sube/commitea y despliega.
 
-## Dataset
-El loader busca automáticamente en estas rutas (en este orden):
-```
-/data/scada_dataset_mining_extended_v371.json
-/data/scada_dataset.json
-/scada_dataset_mining_extended_v371.json
-/scada_dataset.json
-```
-Coloca tu JSON en cualquiera de esas ubicaciones (por ejemplo `public/data/...`).
-
-## Tablas Supabase
-- **weights**: columnas sugeridas → `id (uuid)`, `feature (text)`, `weight (numeric)`, `critical (bool?)`
-- **reviews**: columnas sugeridas → `id (uuid)`, `platform (text)`, `type ("pro"/"con")`, `text (text)`
-
-Si Supabase no responde, el ranking usa pesos locales por defecto y no rompe el build.
-
-¡Listo! 🚀
+## Nota
+- El botón **Imprimir / PDF** usa `window.print()` en una ventana con sólo la conclusión. No hay dependencias externas, por lo que evita errores de bundling en Netlify.
+- Si ves un 404 de `favicon.ico` en consola, es inofensivo para build. Puedes colocar un `public/favicon.ico` opcionalmente.
