@@ -1,0 +1,16 @@
+/**
+ * Instrucciones para registrar la ruta en App.jsx
+ * 
+ *   import AssistantPage from "./pages/Assistant";
+ *   ...
+ *   <Routes>
+ *     ...
+ *     <Route path="/assistant" element={<AssistantPage />} />
+ *   </Routes>
+ * 
+ * Si usas Netlify, recuerda el redirect SPA en netlify.toml:
+ * [[redirects]]
+ * from = "/*"
+ * to = "/index.html"
+ * status = 200
+ */

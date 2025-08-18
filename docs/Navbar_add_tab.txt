@@ -1,0 +1,16 @@
+/**
+ * Instrucciones para agregar el tab del Asistente en tu Navbar:
+ * 
+ * En src/components/Navbar.jsx (o donde estén los links), añade:
+ * 
+ *   import { Link, NavLink } from "react-router-dom";
+ *   ...
+ *   <NavLink to="/assistant"
+ *     className={({isActive}) => 
+ *       `px-3 py-2 rounded-xl ${isActive ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`
+ *     }>
+ *     Asistente
+ *   </NavLink>
+ * 
+ * Si tu Navbar usa otro patrón de estilos, ajusta las clases Tailwind según tu proyecto.
+ */
