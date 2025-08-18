@@ -1,7 +1,7 @@
 {
   "name": "scada-dashboard",
   "private": true,
-  "version": "3.7.1",
+  "version": "3.7.1-restored",
   "type": "module",
   "scripts": {
     "dev": "vite",
