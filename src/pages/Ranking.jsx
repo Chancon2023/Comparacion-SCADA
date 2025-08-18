@@ -1,3 +1,5 @@
+import supabase from "../lib/supabase";
+
 import React, { useEffect, useMemo, useState } from "react";
 import { COLORS, scoreValue, prepareData } from "../components/utils";
 import supabase from "../lib/supabase";
