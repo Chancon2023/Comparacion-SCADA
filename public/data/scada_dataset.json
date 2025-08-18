@@ -1,89 +1,46 @@
 {
+  "features": [
+    "Ciberseguridad",
+    "Redundancia",
+    "Protocolos",
+    "Compatibilidad con hardware"
+  ],
   "platforms": [
     {
       "name": "zenon Energy Edition (NCS)",
-      "vendor": "COPA-DATA",
-      "category": "NCS",
       "features": {
-        "seguridad": "ok",
-        "redundancia": "ok",
-        "integracion": "ok",
-        "actualizaciones": "ok",
-        "hmi": "ok"
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "ok",
+        "Compatibilidad con hardware": "ok"
       },
-      "pros": [
-        "Plataforma unificada (SCADA/DMS/GIS/Historian) con funciones nativas.",
-        "Compatibilidad entre versiones; bajo costo de migración.",
-        "Acceso web nativo (HTML5), dashboards en nube.",
-        "Agnóstico de hardware y antivirus."
-      ],
-      "cons": [],
-      "notes": [
-        "Alta adaptación a minería (MES, mantención, seguridad)."
+      "why": [
+        "Plataforma unificada con funcionalidades nativas (GIS, Historian, estimador de estado).",
+        "Compatibilidad fuerte entre versiones y acceso remoto/web nativo."
       ]
     },
     {
       "name": "Hitachi Network Manager",
-      "vendor": "Hitachi",
-      "category": "ADMS",
       "features": {
-        "seguridad": "ok",
-        "redundancia": "mid",
-        "integracion": "mid",
-        "actualizaciones": "mid",
-        "hmi": "mid"
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "meh",
+        "Compatibilidad con hardware": "meh"
       },
-      "pros": [
-        "Arquitectura TSO/DSO muy escalable."
-      ],
-      "cons": [
-        "Requiere personalización adicional en minería."
-      ],
-      "notes": []
+      "why": [
+        "Alta para operación de redes; puede requerir personalizaciones para minería."
+      ]
     },
     {
       "name": "Siemens Spectrum Power",
-      "vendor": "Siemens",
-      "category": "ADMS",
       "features": {
-        "seguridad": "ok",
-        "redundancia": "ok",
-        "integracion": "mid",
-        "actualizaciones": "mid",
-        "hmi": "mid"
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "meh",
+        "Compatibilidad con hardware": "no"
       },
-      "pros": [
-        "Solución integral con foco en T&D."
-      ],
-      "cons": [
-        "Dependencia de hardware Siemens y licenciamiento complejo."
-      ],
-      "notes": []
-    },
-    {
-      "name": "Power Operation Schneider",
-      "vendor": "Schneider",
-      "category": "ADMS",
-      "features": {
-        "seguridad": "mid",
-        "redundancia": "no",
-        "integracion": "no",
-        "actualizaciones": "mid",
-        "hmi": "mid"
-      },
-      "pros": [],
-      "cons": [
-        "Falla el driver IEC61850 MMS entre IEDs y SCADA.",
-        "La redundancia no funciona; requiere parches y no quedan operativos.",
-        "Herramienta HMI deficiente y engorrosa; pop-up y comandos IEC61850 no corren bien desde HMI.",
-        "Logs llenan discos en servidores provocando caída del sistema.",
-        "Driver IEC61850 no integra IED de distintas marcas.",
-        "Herramientas de configuración tediosas.",
-        "Actualizaciones para corregir errores, con instalación compleja."
-      ],
-      "notes": [
-        "Sin casos de éxito bajo IEC61850 reportables en tus planillas.",
-        "No cumple NTSyCS (agrupamiento de señales con timestamp)."
+      "why": [
+        "Solución enterprise, integración por módulos; dependencia de hardware de la marca."
       ]
     }
   ]
