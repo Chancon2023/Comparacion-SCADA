@@ -1,166 +1,76 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 /**
- * AssistantChat.jsx
- * - UI 100% front-end (sin dependencias externas) pensado para Vite + React v3.7.1.
- * - Si existe /public/data/scada_dataset.json lo usa para recomendar Top-3.
- * - Si no existe, responde igual con recomendaciones generales (no se rompe).
+ * AssistantChat.jsx (ultra‑mínimo y a prueba de errores)
+ * - No hace fetch de ningún dataset (para evitar fallos CORS/404)
+ * - NO depende de ninguna librería extra
+ * - Responde con reglas simples y NO se rompe
  */
 export default function AssistantChat() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "¡Hola! Soy tu asistente SCADA. Puedo ayudarte a comparar plataformas, revisar normas chilenas (NTSyCS, SITR), IEC 61850/62443 y sugerir opciones para minería. ¿Qué necesitas?",
-    },
+  const [msgs, setMsgs] = useState([
+    { role: "assistant", text: "Hola 👋 Soy tu asistente SCADA. ¿Qué necesitas evaluar (IEC 61850/62443, PRP/HSR, NTSyCS/SITR, minería, web HTML5)?" }
   ]);
-  const [input, setInput] = useState("");
-  const [dataset, setDataset] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const listEndRef = useRef(null);
+  const [text, setText] = useState("");
+  const endRef = useRef(null);
 
-  useEffect(() => {
-    // Intenta cargar el dataset; si no existe, ignora el error
-    const load = async () => {
-      try {
-        const res = await fetch("/data/scada_dataset.json", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) setDataset(data);
-        }
-      } catch (_) {}
-    };
-    load();
-  }, []);
+  useEffect(()=>{
+    endRef.current?.scrollIntoView({behavior:"smooth"});
+  }, [msgs]);
 
-  useEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSend = async (e) => {
+  function send(e){
     e.preventDefault();
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    setMessages((m) => [...m, { role: "user", content: text }]);
-
-    setLoading(true);
-    try {
-      const reply = await think(text, dataset);
-      setMessages((m) => [...m, { role: "assistant", content: reply }]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const q = text.trim();
+    if(!q) return;
+    setMsgs(m=>[...m, {role:"user", text:q}]);
+    setText("");
+    setTimeout(()=>{
+      const reply = think(q);
+      setMsgs(m=>[...m, {role:"assistant", text: reply}]);
+    }, 150);
+  }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="bg-white rounded-2xl shadow border border-slate-200 overflow-hidden">
-        <header className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-          <h1 className="text-xl font-semibold">Asistente SCADA</h1>
-          <p className="text-slate-600 text-sm mt-1">
-            Recomendador de plataformas y guía técnica (NTSyCS, SITR, IEC 61850/62443, PRP/HSR, etc.).
-          </p>
-        </header>
-
-        <div className="h-[56vh] overflow-y-auto px-4 py-4 space-y-3">
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`max-w-[85%] rounded-2xl px-4 py-2 ${
-                m.role === "assistant"
-                  ? "bg-slate-100 text-slate-900"
-                  : "ml-auto bg-indigo-600 text-white"
-              }`}
-            >
-              {m.content}
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow">
+      <div className="h-80 overflow-y-auto p-3 space-y-2">
+        {msgs.map((m,i)=>(
+          <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}>
+            <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${m.role==="user"?"bg-slate-900 text-white":"bg-slate-100 text-slate-900"}`}>
+              <div className="whitespace-pre-wrap">{m.text}</div>
             </div>
-          ))}
-          <div ref={listEndRef} />
-        </div>
-
-        <form onSubmit={handleSend} className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe tu consulta… (p. ej., SCADA para minería con IEC 61850 y PRP/HSR)"
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {loading ? "Pensando…" : "Enviar"}
-          </button>
-        </form>
+          </div>
+        ))}
+        <div ref={endRef} />
       </div>
+      <form onSubmit={send} className="p-3 border-t flex gap-2 bg-slate-50">
+        <input
+          className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          placeholder="Escribe tu consulta…"
+          value={text}
+          onChange={e=>setText(e.target.value)}
+        />
+        <button className="rounded-xl bg-slate-900 text-white px-4 py-2 hover:bg-slate-800">Enviar</button>
+      </form>
     </div>
   );
 }
 
-/**
- * Motor simple basado en reglas + dataset opcional.
- * Devuelve texto en español con Top-3 (si hay dataset) y consideraciones normativas.
- */
-async function think(prompt, dataset) {
-  const p = prompt.toLowerCase();
+/** Respuesta simple a prueba de fallas */
+function think(q){
+  const t = q.toLowerCase();
+  const tips = [];
+  if(/61850|mms|goose/.test(t)) tips.push("• Verifica IEC 61850 (MMS/GOOSE) estable con IEDs multi‑marca y RCB/datasets correctos.");
+  if(/redundan|prp|hsr/.test(t)) tips.push("• Requiere PRP/HSR y hot‑standby; mide tiempos de failover LAN‑A/LAN‑B.");
+  if(/62443|ciber|seguridad|ad/.test(t)) tips.push("• IEC 62443: AD/LDAP, TLS, hardening, roles y auditoría.");
+  if(/mineri|minera/.test(t)) tips.push("• En minería: plataforma unificada (SCADA/DMS/GIS/Historian) + web HTML5 + compatibilidad entre versiones.");
+  if(/web|html5|cliente/.test(t)) tips.push("• Cliente web HTML5 nativo con SSO y cifrado.");
+  if(tips.length===0) tips.push("• Define: protocolos (IEC 61850/60870/DNP3), redundancia (PRP/HSR), ciberseguridad (IEC 62443/AD), cliente web, y requisitos NTSyCS/SITR.");
 
-  // Heurística de ámbitos/filtros
-  const wantsMining = /mineri|minera|mining/.test(p);
-  const wantsIEC61850 = /iec\s*61850|mms|goose|sv\b/.test(p);
-  const wantsIEC62443 = /iec\s*62443|ciber|seguridad/.test(p);
-  const wantsPRPHSR = /\bprp\b|\bhsr\b|redundan/.test(p);
-  const wantsWeb = /web|html5|cliente web|thin client/.test(p);
-  const costSensitive = /costo|presupuesto|tco|licencia/.test(p);
+  const rec = [
+    "1) zenon Energy Edition (NCS) — fuerte en minería, web nativo, plataforma unificada.",
+    "2) Siemens Spectrum Power — T&D enterprise; revisar costo/licenciamiento.",
+    "3) Hitachi Network Manager — gran escala; usualmente requiere personalización.",
+    "4) Power Operation Schneider — revisar red flags IEC 61850/MMS y redundancia en FAT/SAT."
+  ].join("\n");
 
-  // Reglas de texto normativo local
-  const localNotes = [
-    "• Considera NTSyCS (Chile) para requisitos de agrupamiento de señales, timestamp y transformación de puntos simples/dobles.",
-    "• Para SITR (CNE), valida telemetría IEC 60870-5-104, reporting seguro y trazabilidad.",
-    "• Revisa hardening y gestión de identidad según IEC 62443 (AD, TLS, segmentación).",
-  ];
-
-  // Si hay dataset: ranking rápido
-  let rankingText = "";
-  if (Array.isArray(dataset) && dataset.length) {
-    const scored = dataset.map((item) => ({
-      name: item.name || "Plataforma",
-      score: scoreItem(item, { wantsMining, wantsIEC61850, wantsIEC62443, wantsPRPHSR, wantsWeb }),
-    }));
-    scored.sort((a, b) => b.score - a.score);
-    const top = scored.slice(0, 3);
-    rankingText =
-      top.length > 0
-        ? `\n\n**Top sugerido** (por coincidencia de requisitos):\n${top
-            .map((t, i) => `${i + 1}. ${t.name} — score ${t.score}`)
-            .join("\n")}`
-        : "";
-  }
-
-  const general =
-    "En general, para minería con fuerte interoperabilidad y continuidad operativa, prioriza: IEC 61850 nativo (MMS/Report), redundancia PRP/HSR, cliente web HTML5, historian/alarms nativos y seguridad IEC 62443.";
-
-  const cost =
-    costSensitive
-      ? "\n\n**Costo/TCO**: valida licenciamiento escalable, plantillas reutilizables y compatibilidad entre versiones para reducir esfuerzos de migración."
-      : "";
-
-  return `${general}${rankingText}\n\n**Notas normativas locales**:\n${localNotes.join("\n")}\n\n¿Quieres que afinemos la recomendación con datos precisos de tu proyecto (subestaciones, protocolos, ciberseguridad, web, etc.)?`;
-}
-
-function scoreItem(item, prefs) {
-  let s = 0;
-  const tags = (item.tags || []).map((x) => String(x).toLowerCase());
-  const feats = (item.features || []).map((x) => String(x).toLowerCase());
-
-  const has = (arr, ...keys) => keys.some((k) => arr.includes(k));
-
-  if (prefs.wantsMining && has(tags, "minería", "mineria", "mining")) s += 3;
-  if (prefs.wantsIEC61850 && has(tags.concat(feats), "iec 61850", "mms", "goose")) s += 3;
-  if (prefs.wantsIEC62443 && has(tags.concat(feats), "iec 62443", "ad", "tls")) s += 2;
-  if (prefs.wantsPRPHSR && has(tags.concat(feats), "prp", "hsr", "redundancia")) s += 2;
-  if (prefs.wantsWeb && has(feats, "web", "html5", "cliente web")) s += 1;
-
-  return s;
+  return `Recomendación preliminar:\n${rec}\n\nChecklist:\n${tips.join("\n")}`;
 }
