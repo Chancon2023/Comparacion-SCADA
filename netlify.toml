@@ -5,6 +5,7 @@ publish = "dist"
 [functions]
 directory = "netlify/functions"
 node_bundler = "esbuild"
+included_files = ["public/data/**"]
 external_node_modules = ["openai"]
 
 [[redirects]]
