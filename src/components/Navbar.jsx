@@ -12,22 +12,17 @@ export default function Navbar() {
           <p className="text-xs text-slate-600">Comparador interactivo basado en tus planillas.</p>
         </div>
         <nav className="flex gap-2">
-          <NavLink to="/" end className={({isActive})=>`${link} ${isActive?active:""}`}>Inicio</NavLink>
-          <NavLink to="/graficos" className={({isActive})=>`${link} ${isActive?active:""}`}>Gráficos</NavLink>
-          <NavLink to="/radar" className={({isActive})=>`${link} ${isActive?active:""}`}>Radar detallado</NavLink>
-          <NavLink to="/dashboards" className={({isActive})=>`${link} ${isActive?active:""}`}>Dashboards</NavLink>
-          <NavLink to="/ranking" className={({isActive})=>`${link} ${isActive?active:""}`}>Ranking</NavLink>
+          <NavLink to="/" end className={({isActive}) => `${link} ${isActive ? active : ""}`}>Inicio</NavLink>
+          <NavLink to="/graficos" className={({isActive}) => `${link} ${isActive ? active : ""}`}>Gráficos</NavLink>
+          <NavLink to="/radar" className={({isActive}) => `${link} ${isActive ? active : ""}`}>Radar detallado</NavLink>
+          <NavLink to="/dashboards" className={({isActive}) => `${link} ${isActive ? active : ""}`}>Dashboards</NavLink>
+          <NavLink to="/ranking" className={({isActive}) => `${link} ${isActive ? active : ""}`}>Ranking</NavLink>
           <NavLink
-  to="/assistant"
-  className={({ isActive }) =>
-    `px-3 py-2 rounded-xl ${isActive ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`
-  }
->
-  Asistente
-</NavLink>
-
-
-</NavLink>
+            to="/assistant"
+            className={({isActive}) => `${link} ${isActive ? active : ""}`}
+          >
+            Asistente
+          </NavLink>
         </nav>
       </div>
     </header>
