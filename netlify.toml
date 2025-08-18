@@ -6,3 +6,13 @@
   from = "/api/assistant"
   to   = "/.netlify/functions/assistant-gemini"
   status = 200
+
+# netlify.toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = []
+  external_node_modules = []
