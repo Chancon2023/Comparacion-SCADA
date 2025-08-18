@@ -1,91 +1,77 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { classForCell, scoreValue } from "../components/utils";
+import React, { useMemo, useState } from "react";
+import data from "../data/scada_dataset.json";
+import { computeRadarRow, prepareData, DEFAULT_WEIGHTS } from "../components/utils";
+import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip, Legend
+} from "recharts";
 
-const DATA_URL = "/data/scada_dataset.json";
+const CRITICAL = ["Ciberseguridad","Redundancia","Protocolos","Compatibilidad con hardware","Integración IEC61850"];
 
 export default function RadarDetail() {
-  const [raw, setRaw] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(0);
 
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      try {
-        const res = await fetch(DATA_URL);
-        if (!res.ok) throw new Error("No se pudo leer scada_dataset.json");
-        const d = await res.json();
-        if (!alive) return;
-        setRaw(d);
-        // por defecto primera plataforma
-        const first = (d.platforms && d.platforms[0]?.name) || null;
-        setSelected(first);
-      } catch (e) {
-        console.error(e);
-        setError(e.message);
-      }
-    }
-    load();
-    return () => {
-      alive = false;
-    };
+  const dataset = useMemo(() => {
+    const arr = Array.isArray(data) ? data : data?.platforms || [];
+    return arr.map(prepareData);
   }, []);
 
-  const platforms = useMemo(() => raw?.platforms || [], [raw]);
-  const platform = useMemo(
-    () => platforms.find((p) => p.name === selected) || platforms[0],
-    [platforms, selected]
-  );
-  const features = useMemo(
-    () => (raw?.features && Array.isArray(raw.features) ? raw.features : Object.keys(platform?.features || {})),
-    [raw, platform]
-  );
+  const platform = dataset[selected] || {};
+  const featureKeys = useMemo(() => {
+    const feats = platform.features || {};
+    const keys = Object.keys(feats || {});
+    const ordered = [
+      ...CRITICAL.filter(k => keys.includes(k)),
+      ...keys.filter(k => !CRITICAL.includes(k)),
+    ];
+    return ordered;
+  }, [platform]);
 
-  if (error) {
-    return (
-      <div className="p-6 text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
-        Error cargando datos: {error}
-      </div>
-    );
-  }
+  const radarData = useMemo(() => {
+    const row = computeRadarRow(platform, featureKeys);
+    return featureKeys.map((k) => ({
+      feature: k,
+      value: Number(row[k] ?? 0),
+    }));
+  }, [platform, featureKeys]);
 
-  if (!platform) {
-    return <div className="p-6">Cargando…</div>;
-  }
+  const weights = DEFAULT_WEIGHTS;
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Detalle por plataforma
-        </h1>
-        <select
-          className="px-3 py-2 rounded-xl border border-slate-300 bg-white"
-          value={selected || ""}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          {platforms.map((p) => (
-            <option key={p.name} value={p.name}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <h1 className="text-2xl md:text-3xl font-semibold mb-4">Radar detallado</h1>
+
+      <div className="flex gap-3 flex-wrap mb-6">
+        {dataset.map((p, i) => {
+          const active = i === selected;
+          return (
+            <button
+              key={i}
+              className={"px-3 py-1 rounded-full border " + (active ? "bg-black text-white" : "bg-white")}
+              onClick={() => setSelected(i)}
+            >
+              {p.name || `Plataforma ${i+1}`}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
-        <h2 className="text-lg md:text-xl font-semibold mb-3">{platform.name}</h2>
-        <div className="grid md:grid-cols-2 gap-3">
-          {features.map((f) => {
-            const v = platform.features?.[f];
-            const cls = classForCell(v);
-            return (
-              <div key={f} className={`rounded-xl px-3 py-2 ${cls}`}>
-                <div className="text-sm font-medium">{f}</div>
-                <div className="text-sm opacity-80">{String(v)}</div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="w-full h-[420px] bg-white rounded-2xl border shadow-sm">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+            <PolarGrid />
+            <PolarAngleAxis dataKey="feature" />
+            <PolarRadiusAxis domain={[0, 1]} />
+            <Tooltip />
+            <Legend />
+            <Radar name="Cobertura" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="mt-6 text-sm text-slate-600">
+        <div className="font-medium mb-1">Pesos actuales (locales):</div>
+        <pre className="bg-slate-50 p-3 rounded-lg overflow-x-auto">{JSON.stringify(weights, null, 2)}</pre>
       </div>
     </div>
   );

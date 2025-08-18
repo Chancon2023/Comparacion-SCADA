@@ -1,9 +1,40 @@
-{
-  "platforms": [],
-  "features": [],
-  "weights": {
-    "Seguridad": 2.0,
-    "Redundancia": 1.5,
-    "Integración": 1.2
+[
+  {
+    "name": "zenon Energy Edition (NCS)",
+    "features": {
+      "Ciberseguridad": "alta",
+      "Redundancia": "ok",
+      "Protocolos": "ok",
+      "Compatibilidad con hardware": "alta",
+      "Integración IEC61850": "ok",
+      "Acceso remoto/web": "ok",
+      "Casos de Éxito": "ok"
+    },
+    "pros": [
+      "Plataforma unificada",
+      "Funciones nativas GIS/Estimador de estado"
+    ],
+    "cons": [
+      "—"
+    ],
+    "notes": []
+  },
+  {
+    "name": "Power Operation Schneider",
+    "features": {
+      "Ciberseguridad": "media",
+      "Redundancia": "ok",
+      "Protocolos": "ok",
+      "Compatibilidad con hardware": "media",
+      "Integración IEC61850": "no soportado adecuadamente"
+    },
+    "pros": [
+      "Arquitectura redundante implementada"
+    ],
+    "cons": [
+      "Driver IEC61850 con problemas MMS",
+      "Herramienta HMI deficiente"
+    ],
+    "notes": []
   }
-}
+]
