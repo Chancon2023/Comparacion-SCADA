@@ -17,8 +17,7 @@ export default function Navbar() {
           <NavLink to="/radar" className={({isActive})=>`${link} ${isActive?active:""}`}>Radar detallado</NavLink>
           <NavLink to="/dashboards" className={({isActive})=>`${link} ${isActive?active:""}`}>Dashboards</NavLink>
           <NavLink to="/ranking" className={({isActive})=>`${link} ${isActive?active:""}`}>Ranking</NavLink>
-          <NavLink to="/assistant"className={({ isActive }) => `px-3 py-2 rounded-xl ${isActive ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`}
->
+          <NavLink to="/assistant"className={({ isActive }) => `px-3 py-2 rounded-xl ${isActive ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
   Asistente
 </NavLink>
            
