@@ -1,0 +1,100 @@
+{
+  "weights": {
+    "Ciberseguridad": 2,
+    "Redundancia": 2,
+    "Protocolos": 2,
+    "Compatibilidad con hardware": 1.5,
+    "Gestión de operaciones mineras": 1.5,
+    "Acceso remoto/web": 1
+  },
+  "platforms": [
+    {
+      "name": "zenon Energy Edition (NCS)",
+      "vendor": "COPA-DATA",
+      "features": {
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "ok",
+        "Compatibilidad con hardware": "ok",
+        "Gestión de operaciones mineras": "ok",
+        "Acceso remoto/web": "ok"
+      },
+      "pros": [
+        "Plataforma unificada (SCADA/DMS/GIS/Historian).",
+        "Compatibilidad entre versiones.",
+        "Acceso web nativo HTML5.",
+        "Agnóstico de hardware y antivirus."
+      ],
+      "cautions": [
+        "Curva de aprendizaje inicial; requiere capacitación."
+      ],
+      "cons": []
+    },
+    {
+      "name": "Power Operation Schneider",
+      "vendor": "Schneider Electric",
+      "features": {
+        "Ciberseguridad": "media",
+        "Redundancia": "media",
+        "Protocolos": "media",
+        "Compatibilidad con hardware": "media",
+        "Gestión de operaciones mineras": "media",
+        "Acceso remoto/web": "media"
+      },
+      "pros": [
+        "Arquitectura redundante implementada en clientes mineros (validar alcance)."
+      ],
+      "cautions": [
+        "Costo: validar según documento.",
+        "Actualizaciones: revisar procedimiento y estabilidad."
+      ],
+      "cons": [
+        "No cumple con requisitos de NTSyCS (agrupamiento con timestamp y puntos dobles).",
+        "Falla driver IEC61850 para MMS entre IEDs y SCADA (validar en pruebas).",
+        "Logs pueden llenar discos si no se gestionan (configuración).",
+        "Reportabilidad IEC104 hacia CC principal: revisar compatibilidad.",
+        "Herramienta HMI considerada limitada por usuarios."
+      ]
+    },
+    {
+      "name": "Hitachi Network Manager",
+      "vendor": "Hitachi Energy",
+      "features": {
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "ok",
+        "Compatibilidad con hardware": "media",
+        "Gestión de operaciones mineras": "media",
+        "Acceso remoto/web": "media"
+      },
+      "pros": [
+        "Muy escalable (TSO/DSO)."
+      ],
+      "cautions": [
+        "Requiere personalización adicional para minería."
+      ],
+      "cons": []
+    },
+    {
+      "name": "Siemens Spectrum Power",
+      "vendor": "Siemens",
+      "features": {
+        "Ciberseguridad": "ok",
+        "Redundancia": "ok",
+        "Protocolos": "ok",
+        "Compatibilidad con hardware": "no",
+        "Gestión de operaciones mineras": "media",
+        "Acceso remoto/web": "no"
+      },
+      "pros": [
+        "Solución madura para utilities (T&D)."
+      ],
+      "cautions": [
+        "Licenciamiento complejo; alto TCO."
+      ],
+      "cons": [
+        "Alta dependencia de hardware y módulos separados para funcionalidades."
+      ]
+    }
+  ]
+}
