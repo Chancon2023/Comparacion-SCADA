@@ -1,214 +1,219 @@
 {
-  "meta": {
-    "name": "SCADA dataset mining extended",
-    "version": "v3.7.1-local",
-    "updated": "2025-08-18",
-    "scoring": {
-      "critical_features": [
-        "ciberseguridad",
-        "redundancia",
-        "protocolos",
-        "compatibilidad_hardware"
-      ],
-      "feature_points": {
-        "ok": 10,
-        "partial": 5,
-        "no": 0
-      },
-      "redflag_penalties": {
-        "hard": 20,
-        "soft": 10
-      },
-      "max_score": 100
-    }
-  },
   "platforms": [
     {
       "id": "zenon_ncs",
       "name": "zenon Energy Edition (NCS)",
       "vendor": "COPA-DATA",
-      "category": "SCADA/DMS",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "ok",
-        "hmi": "ok",
-        "acceso_web": "ok",
-        "actualizaciones": "ok",
-        "soporte_cl": "ok"
+      "category_scores": {
+        "Ciberseguridad": 95,
+        "Redundancia": 92,
+        "Protocolos": 95,
+        "Integración": 94,
+        "Compatibilidad con hardware": 90,
+        "Facilidad de uso": 90,
+        "Actualizaciones": 92,
+        "Soporte": 90,
+        "Costo total de propiedad": 82
       },
-      "comments": [
-        "Plataforma unificada SCADA/DMS/GIS/Historian.",
+      "pros": [
+        "Plataforma unificada (SCADA/DMS/GIS/Historian).",
+        "Funcionalidades clave nativas (GIS, estimador de estado).",
         "Compatibilidad garantizada entre versiones.",
-        "Acceso remoto y web nativo (HTML5).",
-        "Agnóstico de hardware y antivirus; fácil de mantener."
+        "Acceso web nativo HTML5, clientes remotos.",
+        "Agnóstico en hardware y antivirus."
       ],
-      "red_flags": []
+      "cons": [],
+      "cautions": [
+        "Validar disponibilidad de integradores certificados según región."
+      ],
+      "alerts": [],
+      "comentarios": [
+        "Alta adaptación a minería (MES, mantenimiento, energía, seguridad).",
+        "Versión de referencia superior a ABB SEE00 (p.ej., zenon v15 vs ABB v14)."
+      ]
     },
     {
       "id": "hitachi_nm",
       "name": "Hitachi Network Manager",
       "vendor": "Hitachi Energy",
-      "category": "SCADA/DMS",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "partial",
-        "hmi": "partial",
-        "acceso_web": "partial",
-        "actualizaciones": "ok",
-        "soporte_cl": "partial"
+      "category_scores": {
+        "Ciberseguridad": 90,
+        "Redundancia": 90,
+        "Protocolos": 88,
+        "Integración": 80,
+        "Compatibilidad con hardware": 78,
+        "Facilidad de uso": 75,
+        "Actualizaciones": 80,
+        "Soporte": 85,
+        "Costo total de propiedad": 70
       },
-      "comments": [
-        "Gestión avanzada de redes de transmisión y distribución.",
-        "Puede requerir personalización adicional para minería."
+      "pros": [
+        "Gestión avanzada de redes T&D.",
+        "Alta disponibilidad."
       ],
-      "red_flags": []
+      "cons": [
+        "Requiere personalización adicional para minería.",
+        "Costos y licenciamiento más elevados."
+      ],
+      "cautions": [],
+      "alerts": [],
+      "comentarios": [
+        "Maduro en operación de redes; integración OT más lenta."
+      ]
     },
     {
       "id": "siemens_spectrum_power",
       "name": "Siemens Spectrum Power",
       "vendor": "Siemens",
-      "category": "SCADA/DMS",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "partial",
-        "hmi": "partial",
-        "acceso_web": "partial",
-        "actualizaciones": "ok",
-        "soporte_cl": "ok"
+      "category_scores": {
+        "Ciberseguridad": 92,
+        "Redundancia": 92,
+        "Protocolos": 90,
+        "Integración": 82,
+        "Compatibilidad con hardware": 76,
+        "Facilidad de uso": 78,
+        "Actualizaciones": 82,
+        "Soporte": 88,
+        "Costo total de propiedad": 65
       },
-      "comments": [
-        "Solución integral para T&D; modular.",
-        "Dependencia más alta de ecosistema/hardware Siemens."
+      "pros": [
+        "Solución integral para redes eléctricas (T&D).",
+        "Alta disponibilidad y soporte local (Siemens Chile)."
       ],
-      "red_flags": [
-        {
-          "text": "Alto costo total de propiedad (enterprise).",
-          "level": "soft"
-        }
+      "cons": [
+        "Módulos separados para varias funciones clave.",
+        "Licenciamiento complejo."
+      ],
+      "cautions": [],
+      "alerts": [],
+      "comentarios": [
+        "Alta dependencia de hardware Siemens para ciertos escenarios."
+      ]
+    },
+    {
+      "id": "schneider_power_operation",
+      "name": "Power Operation Schneider",
+      "vendor": "Schneider Electric",
+      "category_scores": {
+        "Ciberseguridad": 65,
+        "Redundancia": 55,
+        "Protocolos": 50,
+        "Integración": 48,
+        "Compatibilidad con hardware": 70,
+        "Facilidad de uso": 60,
+        "Actualizaciones": 45,
+        "Soporte": 70,
+        "Costo total de propiedad": 68
+      },
+      "pros": [
+        "Implementación de arquitectura redundante en clientes mineros.",
+        "HMI amigable para operatoria básica."
+      ],
+      "cons": [
+        "Herramienta de HMI considerada limitada para desarrollos complejos.",
+        "Herramientas de configuración tediosas."
+      ],
+      "cautions": [
+        "Verificar costos y roadmap de actualizaciones."
+      ],
+      "alerts": [
+        "Falla del driver IEC61850 para MMS entre IEDs y SCADA.",
+        "Logs del software llenan discos de servidores si no se gobierna.",
+        "Redundancia reportada como 'no funcional' en ciertos escenarios.",
+        "HMI toolkit deficiente para pantallas complejas.",
+        "IEC61850 multi-vendor no soportado adecuadamente.",
+        "Actualizaciones correctivas con instalación compleja y resultados inciertos.",
+        "No cumple NTSyCS en agrupamientos con sello temporal.",
+        "Sin casos de éxito sólidos bajo IEC61850 reportados en los documentos."
+      ],
+      "comentarios": [
+        "Revisar profundamente en FAT/SAT: IEC61850, redundancia PRP/HSR, logs.",
+        "Validar compatibilidad con agrupamientos y dobles puntos (NTSyCS)."
+      ]
+    },
+    {
+      "id": "schneider_epas_gateway",
+      "name": "EPAS Gateway Schneider",
+      "vendor": "Schneider Electric",
+      "category_scores": {
+        "Ciberseguridad": 82,
+        "Redundancia": 85,
+        "Protocolos": 88,
+        "Integración": 82,
+        "Compatibilidad con hardware": 80,
+        "Facilidad de uso": 72,
+        "Actualizaciones": 78,
+        "Soporte": 80,
+        "Costo total de propiedad": 72
+      },
+      "pros": [
+        "Soporte sólido de protocolos (IEC 60870, 61850, DNP3).",
+        "Arquitectura modular y escalable."
+      ],
+      "cons": [
+        "Interfaz y operación menos unificadas que NCS."
+      ],
+      "cautions": [],
+      "alerts": [],
+      "comentarios": [
+        "Proyecto típicamente orientado a gateway/telecontrol más que HMI integral."
+      ]
+    },
+    {
+      "id": "zenon_copadata",
+      "name": "zenon COPADATA (cliente/servidor)",
+      "vendor": "COPA-DATA",
+      "category_scores": {
+        "Ciberseguridad": 93,
+        "Redundancia": 92,
+        "Protocolos": 94,
+        "Integración": 90,
+        "Compatibilidad con hardware": 90,
+        "Facilidad de uso": 88,
+        "Actualizaciones": 92,
+        "Soporte": 88,
+        "Costo total de propiedad": 80
+      },
+      "pros": [
+        "Cliente web HTML5; multi-touch; proyectos con pantallas de multittáctil.",
+        "Visualización en tiempo real; análisis de datos."
+      ],
+      "cons": [],
+      "cautions": [],
+      "alerts": [],
+      "comentarios": [
+        "Equivalente a NCS en muchos frentes para HMI/SCADA."
       ]
     },
     {
       "id": "microscada_x",
       "name": "MicroSCADA X",
-      "vendor": "Hitachi Energy (ABB legacy)",
-      "category": "SCADA",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "partial",
-        "hmi": "partial",
-        "acceso_web": "partial",
-        "actualizaciones": "ok",
-        "soporte_cl": "ok"
+      "vendor": "Hitachi Energy (ABB)",
+      "category_scores": {
+        "Ciberseguridad": 88,
+        "Redundancia": 90,
+        "Protocolos": 86,
+        "Integración": 78,
+        "Compatibilidad con hardware": 80,
+        "Facilidad de uso": 75,
+        "Actualizaciones": 80,
+        "Soporte": 85,
+        "Costo total de propiedad": 70
       },
-      "comments": [
-        "Amplia base instalada y madurez operativa."
+      "pros": [
+        "Solución conocida en subestaciones y utilities.",
+        "Disponibilidad y soporte extendidos."
       ],
-      "red_flags": []
-    },
-    {
-      "id": "power_operation_schneider",
-      "name": "Power Operation Schneider",
-      "vendor": "Schneider Electric",
-      "category": "SCADA",
-      "features": {
-        "ciberseguridad": "partial",
-        "redundancia": "partial",
-        "protocolos": "partial",
-        "compatibilidad_hardware": "partial",
-        "hmi": "partial",
-        "acceso_web": "partial",
-        "actualizaciones": "partial",
-        "soporte_cl": "ok"
-      },
-      "comments": [
-        "Interfaz de administración WebGAT; HMI amigable para pantallas locales."
+      "cons": [
+        "En ciertos casos opera versión por detrás de zenon."
       ],
-      "red_flags": [
-        {
-          "text": "Falla el driver IEC61850 para comunicación MMS entre IEDs y SCADA.",
-          "level": "hard"
-        },
-        {
-          "text": "Los logs que genera el software llenan los discos de los servidores.",
-          "level": "hard"
-        },
-        {
-          "text": "La redundancia no funciona.",
-          "level": "hard"
-        },
-        {
-          "text": "Herramienta para el desarrollo de pantallas HMI es deficiente.",
-          "level": "hard"
-        },
-        {
-          "text": "IEC61850 no soportado adecuadamente; el driver no integra IEDs multi-marca.",
-          "level": "hard"
-        },
-        {
-          "text": "Herramientas de configuración tediosas.",
-          "level": "soft"
-        },
-        {
-          "text": "Actualizaciones correctivas no funcionan a la primera o requieren procedimiento extenso.",
-          "level": "soft"
-        },
-        {
-          "text": "Ningún caso de éxito en integración bajo IEC61850.",
-          "level": "hard"
-        },
-        {
-          "text": "No cumple con NTSyCS: no puede agrupar señales manteniendo timestamp ni transformar puntos simples a dobles.",
-          "level": "hard"
-        }
+      "cautions": [
+        "Validar versión exacta vs. roadmap (p.ej., zenon v15 vs MicroSCADA v14)."
+      ],
+      "alerts": [],
+      "comentarios": [
+        "Adecuado para operación de subestaciones; revisar integración con MES."
       ]
-    },
-    {
-      "id": "ecostruxure_grid_operation_adms",
-      "name": "EcoStruxure™ Grid Operation ADMS",
-      "vendor": "Schneider Electric",
-      "category": "ADMS",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "partial",
-        "hmi": "partial",
-        "acceso_web": "partial",
-        "actualizaciones": "ok",
-        "soporte_cl": "ok"
-      },
-      "comments": [
-        "ADMS con integración de nuevos protocolos y capacidades de control avanzado."
-      ],
-      "red_flags": []
-    },
-    {
-      "id": "epas_gateway_schneider",
-      "name": "EPAS Gateway Schneider",
-      "vendor": "Schneider Electric",
-      "category": "Gateway/Comms",
-      "features": {
-        "ciberseguridad": "ok",
-        "redundancia": "ok",
-        "protocolos": "ok",
-        "compatibilidad_hardware": "ok",
-        "hmi": "no",
-        "acceso_web": "no",
-        "actualizaciones": "ok",
-        "soporte_cl": "ok"
-      },
-      "comments": [
-        "Gateway con IEC 61850/104/DNP3; robusto para integración."
-      ],
-      "red_flags": []
     }
   ]
 }

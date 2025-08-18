@@ -1,70 +1,94 @@
+/**
+ * utils.js (v3.7.1 patch – sin Supabase)
+ * Carga dataset, calcula ranking y maneja comentarios locales.
+ */
 
-// src/components/utils.js
+export const CRITICAL_KEYS = [
+  "Ciberseguridad",
+  "Redundancia",
+  "Protocolos",
+  "Integración",
+  "Compatibilidad con hardware"
+];
+
+const FALLBACK_PATHS = [
+  "/data/scada_dataset.json",
+  "/data/scada_dataset_mining_extended.json",
+  "/data/dataset.json"
+];
+
 export async function loadDataset() {
-  const paths = ["/data/scada_dataset.json", "/data/scada_dataset_mining_extended.json", "/data/dataset.json"];
-  for (const p of paths) {
+  for (const p of FALLBACK_PATHS) {
     try {
       const res = await fetch(p, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        data.__sourcePath = p;
-        return data;
+        // soporta {platforms: []} o [] plano
+        const arr = Array.isArray(data) ? data : (data.platforms || []);
+        if (arr.length) return arr;
       }
     } catch (e) {
-      // ignore and try next
+      // seguir al siguiente path
     }
   }
-  throw new Error("No se encontró un dataset en /public/data/. Coloca un JSON (p.ej. scada_dataset.json) y vuelve a intentar.");
+  throw new Error("No se encontró dataset en /public/data/.");
 }
 
-export function computeScore(platform, weights) {
-  const scores = platform.scores || {};
-  let s = 0; let w = 0;
-  Object.entries(weights || {}).forEach(([k, wk]) => {
-    const v = typeof scores[k] === "number" ? scores[k] : 0;
-    s += v * wk;
-    w += wk;
+export function classForCell(v) {
+  if (v === null || v === undefined || isNaN(v)) return "bg-gray-100 text-gray-700";
+  if (v >= 85) return "bg-emerald-100 text-emerald-800";
+  if (v >= 70) return "bg-sky-100 text-sky-800";
+  if (v >= 50) return "bg-amber-100 text-amber-800";
+  return "bg-rose-100 text-rose-800";
+}
+
+export function scoreValue(v) {
+  if (v === null || v === undefined || isNaN(v)) return 0;
+  return Math.max(0, Math.min(100, Number(v)));
+}
+
+export function computePlatformScore(p) {
+  const categories = p.category_scores || {};
+  const keys = Object.keys(categories);
+  if (!keys.length) return 0;
+
+  let wSum = 0;
+  let acc = 0;
+  keys.forEach(k => {
+    const v = scoreValue(categories[k]);
+    const w = CRITICAL_KEYS.includes(k) ? 2 : 1;
+    acc += v * w;
+    wSum += w;
   });
-  let base = w > 0 ? (s / w) : 0;
 
-  // penalizaciones por red flags
-  const flags = platform.red_flags || [];
-  let penalty = 0;
-  for (const f of flags) {
-    if (!f) continue;
-    const sev = (f.severity || "").toLowerCase();
-    if (sev === "hard") penalty += 8;
-    else if (sev === "medium") penalty += 4;
-    else penalty += 1;
-  }
-  const finalScore = Math.max(0, Math.min(100, base - penalty));
-  return { base: Math.round(base), penalty, final: Math.round(finalScore) };
+  let base = wSum ? acc / wSum : 0;
+
+  const alerts = Array.isArray(p.alerts) ? p.alerts.length : 0;
+  // penalización por alerta dura
+  base -= Math.min(20, alerts * 2);
+
+  return Math.round(Math.max(0, Math.min(100, base)));
 }
 
-export function downloadJSON(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+export function prepareData(platforms) {
+  // fusiona comentarios locales (si existen) y agrega score
+  return platforms.map(p => {
+    const uid = p.id || (p.vendor + "_" + p.name).replace(/\s+/g, "_").toLowerCase();
+    const local = typeof window !== "undefined" ? window.localStorage.getItem("comments/" + uid) : null;
+    const userComment = local ? JSON.parse(local) : "";
+    return {
+      ...p,
+      uid,
+      userComment,
+      score: computePlatformScore(p)
+    };
+  }).sort((a, b) => b.score - a.score);
 }
 
-// Merge local editable comments stored in localStorage
-export function mergeEditableComments(data) {
+export function saveLocalComment(uid, text) {
   try {
-    const local = JSON.parse(localStorage.getItem("scada-comments") || "{}");
-    if (!local || typeof local !== "object") return data;
-    const copy = JSON.parse(JSON.stringify(data));
-    for (const p of copy.platforms || []) {
-      const edits = local[p.id];
-      if (edits?.comments) {
-        p.comments = edits.comments;
-      }
-    }
-    return copy;
-  } catch {
-    return data;
+    window.localStorage.setItem("comments/" + uid, JSON.stringify(text || ""));
+  } catch (e) {
+    console.warn("No se pudo guardar comentario:", e);
   }
 }
