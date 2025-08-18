@@ -1,108 +1,78 @@
-// Utility helpers shared across pages (v3.7.1, no-supabase build)
+// Utilidades comunes (sin dependencias externas)
+export const COLORS = [
+  "#0ea5e9", "#22c55e", "#f97316", "#a78bfa", "#14b8a6", "#f43f5e", "#eab308", "#8b5cf6"
+];
 
-/** Color palette used by charts/cards */
-export const COLORS = {
-  ok: "#16a34a",        // green-600
-  warn: "#f59e0b",      // amber-500
-  no: "#ef4444",        // red-500
-  neutral: "#94a3b8",   // slate-400
-  bar: "#3b82f6",       // blue-500
-};
-
-/** Map qualitative value -> numeric [0,1] */
-export function normalize(value) {
-  if (value == null) return 0;
-  if (typeof value === "number") {
-    // Assume already 0..1 or 0..100
-    if (value > 1) return Math.max(0, Math.min(1, value / 100));
-    return Math.max(0, Math.min(1, value));
-  }
-  const v = String(value).trim().toLowerCase();
-  if (["ok", "sí", "si", "alta", "alto", "yes"].includes(v)) return 1;
-  if (["media", "medio", "partial", "parcial", "warn", "depende"].includes(v)) return 0.5;
-  if (["no", "baja", "bajo"].includes(v)) return 0;
-  // textual numbers like "80%"
-  const m = v.match(/(\d+)\s*%/);
-  if (m) return Math.max(0, Math.min(1, parseFloat(m[1]) / 100));
-  const n = parseFloat(v);
-  if (!Number.isNaN(n)) return Math.max(0, Math.min(1, n));
-  return 0;
+export function slugify(txt){
+  return (txt||"platform").toString().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,80);
 }
 
-/** Small UI helper that returns Tailwind classes by qualitative value */
-export function classForCell(value) {
-  const n = normalize(value);
-  if (n >= 0.75) return "bg-green-50 text-green-800 ring-1 ring-green-200";
-  if (n >= 0.5) return "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
-  if (n > 0) return "bg-slate-50 text-slate-700 ring-1 ring-slate-200";
-  return "bg-red-50 text-red-700 ring-1 ring-red-200";
-}
+// Fallbacks de dataset en /public/data/
+const CANDIDATES = [
+  "/data/scada_dataset.json",
+  "/data/scada_dataset_mining_extended.json",
+  "/data/dataset.json"
+];
 
-/** Compute weighted score for a platform given features + weight map */
-export function scoreValue(features, weights) {
-  if (!features || !weights) return 0;
-  let sum = 0, wsum = 0;
-  Object.entries(weights).forEach(([k,w]) => {
-    const v = normalize(features[k]);
-    const ww = typeof w === "number" ? w : 1;
-    sum += v * ww;
-    wsum += ww;
-  });
-  if (wsum === 0) return 0;
-  return sum / wsum;
-}
-
-/** Build default weight map from dataset features (critical first) */
-export function defaultWeights(dataset) {
-  // Try to infer list of features from first platform
-  const first = dataset?.platforms?.[0] || dataset?.[0];
-  const features = first?.features ? Object.keys(first.features) : [];
-  const weights = {};
-  // Give a bit more importance to the usual criticals
-  const bonus = ["Ciberseguridad", "Redundancia", "Protocolos", "Compatibilidad con hardware", "Integración IEC61850"];
-  for (const f of features) {
-    weights[f] = bonus.includes(f) ? 2 : 1;
-  }
-  return weights;
-}
-
-/** Prepare high level stats for charts/home */
-export function prepareData(dataset) {
-  const list = dataset?.platforms ?? dataset ?? [];
-  const weights = dataset?.weights ?? defaultWeights(dataset);
-  return list.map(p => ({
-    name: p.name,
-    vendor: p.vendor,
-    group: p.group || "General",
-    score: scoreValue(p.features || {}, weights),
-  }));
-}
-
-/** Compute a radar row for a single platform */
-export function computeRadarRow(platform, weights) {
-  const features = platform.features || {};
-  const labels = Object.keys(weights || features);
-  const data = labels.map(k => normalize(features[k]) * 100);
-  return { labels, data };
-}
-
-/** Safe fetch with fallbacks for JSON under /public/data */
-export async function fetchDataset() {
-  const tried = [];
-  const candidates = [
-    "/data/scada_dataset.json",
-    "/data/scada_dataset_mining_extended.json",
-    "/data/dataset.json",
-  ];
-  for (const url of candidates) {
-    try {
-      tried.push(url);
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        return { data: json, tried };
+export async function fetchDataset(){
+  for (const url of CANDIDATES){
+    try{
+      const res = await fetch(url, {cache:"no-store"});
+      if (res.ok){
+        const data = await res.json();
+        return normalizeDataset(data);
       }
-    } catch {}
+    }catch(_e){ /* ignore */ }
   }
-  return { data: null, tried };
+  return { platforms: [], raw: null, source: null };
+}
+
+function normalizeDataset(data){
+  // Permite array directo o {platforms:[...]}
+  const arr = Array.isArray(data) ? data : (Array.isArray(data?.platforms) ? data.platforms : []);
+  const CRITICAL = ["Ciberseguridad","Redundancia","Protocolos","Compatibilidad con hardware"];
+  const platforms = arr.map((it, idx) => {
+    const name = it.name || it.plataforma || it.Platform || it.title || `Plataforma ${idx+1}`;
+    const slug = slugify(name);
+    const scores = {};
+    for (const k of CRITICAL){
+      let v = null;
+      if (typeof it?.scores?.[k] === "number") v = it.scores[k];
+      else if (typeof it[k] === "number") v = it[k];
+      else if (typeof it[k] === "boolean") v = it[k] ? 1 : 0;
+      if (v === null){
+        // intenta buscar en claves anidadas por nombre
+        const key = Object.keys(it).find(kk => kk.toLowerCase().includes(k.toLowerCase()));
+        if (key && typeof it[key] === "number") v = it[key];
+      }
+      if (typeof v !== "number" || !isFinite(v)) v = 0; // default seguro
+      // Normaliza 0..1 si parece porcentaje
+      if (v > 1) v = Math.min(1, v/100);
+      if (v < 0) v = 0;
+      scores[k] = v;
+    }
+    return { name, slug, scores, raw: it };
+  });
+  return { platforms, raw: data, source: "public/data" };
+}
+
+export function scoreValue(scores){
+  const vals = Object.values(scores||{});
+  if (!vals.length) return 0;
+  return vals.reduce((a,b)=>a+b,0)/vals.length;
+}
+
+export function classForCell(v){
+  if (v >= 0.75) return "badge";
+  if (v >= 0.5) return "badge";
+  return "badge";
+}
+
+export function computeRadarRow(platform){
+  // Devuelve pares {feature, value}
+  const rows = [];
+  for (const [k,v] of Object.entries(platform.scores||{})){
+    rows.push({ feature: k, value: Number(v) });
+  }
+  return rows;
 }

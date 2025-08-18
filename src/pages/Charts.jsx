@@ -1,42 +1,43 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Navbar from "../components/Navbar.jsx";
-import { COLORS, prepareData, fetchDataset } from "../components/utils";
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis
-} from "recharts";
+import React, { useEffect, useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
+import { fetchDataset } from "../components/utils.js";
 
-export default function Charts() {
-  const [dataset, setDataset] = useState(null);
-  const [error, setError] = useState("");
+export default function Charts(){
+  const [data, setData] = useState([]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await fetchDataset();
-      if (!data) { setError("Sin dataset en /public/data"); return; }
-      const normalized = Array.isArray(data) ? { platforms: data } : data;
-      setDataset(normalized);
+      const { platforms } = await fetchDataset();
+      const rows = platforms.map(p => ({
+        name: p.name,
+        Ciberseguridad: Math.round(p.scores["Ciberseguridad"]*100),
+        Redundancia: Math.round(p.scores["Redundancia"]*100),
+        Protocolos: Math.round(p.scores["Protocolos"]*100),
+        Hardware: Math.round(p.scores["Compatibilidad con hardware"]*100),
+      }));
+      setData(rows);
     })();
   }, []);
 
-  const items = useMemo(()=> dataset ? prepareData(dataset) : [], [dataset]);
-
-  if (error) {
-    return <div className="max-w-5xl mx-auto p-6 text-rose-700">{error}</div>;
+  if (!data.length){
+    return <div className="card">No hay datos de /public/data/. Sube un JSON como <code>/data/scada_dataset.json</code> y vuelve a intentar.</div>;
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl md:text-3xl font-semibold">Gráficos</h1>
-
-      <div className="rounded-2xl p-6 bg-white shadow border">
-        <h2 className="font-medium mb-4">Promedio por plataforma</h2>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={items}>
+    <div className="card">
+      <h2 style={{marginTop:0}}>Barras: promedio por plataforma</h2>
+      <div style={{width:"100%",height:420}}>
+        <ResponsiveContainer>
+          <BarChart data={data} margin={{left:10,right:20,top:10,bottom:10}}>
+            <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" hide />
-            <YAxis domain={[0,1]} hide />
-            <Tooltip formatter={(v)=> (v*100).toFixed(1) + "%"} />
-            <Bar dataKey="score" fill={COLORS.bar} radius={[8,8,0,0]}/>
+            <YAxis domain={[0,100]} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="Ciberseguridad" fill="#0ea5e9" />
+            <Bar dataKey="Redundancia" fill="#22c55e" />
+            <Bar dataKey="Protocolos" fill="#f97316" />
+            <Bar dataKey="Hardware" fill="#a78bfa" />
           </BarChart>
         </ResponsiveContainer>
       </div>

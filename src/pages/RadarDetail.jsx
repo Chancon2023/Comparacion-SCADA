@@ -1,49 +1,43 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { fetchDataset, defaultWeights, computeRadarRow } from "../components/utils";
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip
-} from "recharts";
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { fetchDataset, computeRadarRow } from "../components/utils.js";
 
-export default function RadarDetail() {
-  const { name } = useParams();
-  const [dataset, setDataset] = useState(null);
+export default function RadarDetail(){
+  const { slug } = useParams();
+  const nav = useNavigate();
+  const [platform, setPlatform] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await fetchDataset();
-      if (!data) return;
-      setDataset(Array.isArray(data) ? { platforms: data } : data);
+      const { platforms } = await fetchDataset();
+      const p = platforms.find(x => x.slug === slug) || null;
+      setPlatform(p);
     })();
-  }, []);
+  }, [slug]);
 
-  const platform = useMemo(()=> {
-    if (!dataset) return null;
-    return (dataset.platforms || []).find(p => (p.name || "").toLowerCase() === decodeURIComponent(name||"").toLowerCase());
-  }, [dataset, name]);
+  if (!platform){
+    return <div className="card">Cargando…</div>;
+  }
 
-  const weights = useMemo(()=> dataset?.weights ?? defaultWeights(dataset || {}), [dataset]);
-  const series = useMemo(()=> platform ? computeRadarRow(platform, weights) : null, [platform, weights]);
-
-  if (!dataset) return <div className="max-w-5xl mx-auto p-6">Cargando…</div>;
-  if (!platform) return <div className="max-w-5xl mx-auto p-6">No se encontró la plataforma.</div>;
+  const rows = computeRadarRow(platform).map(r => ({...r, valuePct: Math.round(r.value*100)}));
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-semibold">Radar detallado — {platform.name}</h1>
-        <Link to="/ranking" className="rounded-xl px-4 py-2 bg-slate-900 text-white">← Volver</Link>
+    <div className="card">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <h2 style={{marginTop:0}}>Ficha: {platform.name}</h2>
+        <button className="btn secondary" onClick={() => nav(-1)}>← Volver</button>
       </div>
 
-      <div className="rounded-2xl p-6 bg-white shadow border">
-        <ResponsiveContainer width="100%" height={400}>
-          <RadarChart outerRadius="80%" data={(series?.labels || []).map((label, i)=>({ feature: label, value: series.data[i] }))}>
+      <div style={{width:"100%",height:420}}>
+        <ResponsiveContainer>
+          <RadarChart data={rows}>
             <PolarGrid />
             <PolarAngleAxis dataKey="feature" />
-            <PolarRadiusAxis angle={30} domain={[0,100]} />
-            <Tooltip formatter={(v)=> `${v.toFixed(0)}%`}/>
-            <Radar name={platform.name} dataKey="value" stroke="#1d4ed8" fill="#93c5fd" fillOpacity={0.5} />
+            <PolarRadiusAxis angle={30} domain={[0, 1]} />
+            <Tooltip />
+            <Legend />
+            <Radar name="Score" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.4} />
           </RadarChart>
         </ResponsiveContainer>
       </div>
