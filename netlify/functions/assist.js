@@ -1,104 +1,98 @@
-/**
- * Netlify Function: /functions/assist.js
- * - Proxy a OpenAI Chat Completions para hacer el asistente "más inteligente"
- * - Lee OPENAI_API_KEY desde variables de entorno (configurar en Netlify)
- * - Opcional: recibe `dataset` (pequeño) y `prefs` para contextualizar
- */
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+// netlify/functions/assist.js
+// Serverless function para el Asistente SCADA (sin node-fetch).
 
 exports.handler = async (event) => {
-  // CORS preflight
-  if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-      body: "",
-    };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: "Method Not Allowed",
-    };
-  }
-
   try {
-    const { prompt, dataset, prefs } = JSON.parse(event.body || "{}");
-    if (!process.env.OPENAI_API_KEY) {
+    if (event.httpMethod !== "POST") {
       return {
-        statusCode: 500,
-        headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ error: "OPENAI_API_KEY not configured" }),
+        statusCode: 405,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Method Not Allowed" }),
       };
     }
 
-    const system = [
-      "Eres un asistente técnico para comparación de plataformas SCADA en Chile.",
-      "Conoces NTSyCS, SITR, IEC 61850 (MMS/GOOSE/SV), IEC 60870-5-104, DNP3, IEC 62443, PRP/HSR y prácticas de alta disponibilidad.",
-      "Da respuestas claras, con listas y pasos prácticos. Evita prosa larga.",
-      "Si se provee `dataset`, úsalo para mencionar pros/contras concretos y red flags.",
-      "Si el usuario dice 'minería', prioriza plataforma unificada, web HTML5, historian, plantillas, compatibilidad entre versiones, y PRP/HSR.",
-      "Si detectas marcas: zenon, Schneider Power Operation, Siemens Spectrum, Hitachi NM, ABB SEE00/ZEE600, comenta puntos fuertes y debilidades.",
-      "Incluye checklist de validación FAT/SAT cuando corresponda."
-    ].join(" ");
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "OPENAI_API_KEY missing" }),
+      };
+    }
 
-    const user = [
-      `Consulta: ${prompt || ""}`,
-      dataset && Array.isArray(dataset) ? `\nDataset (resumen): ${dataset.slice(0,6).map(p=>{
-        const name = p.name || "Plataforma";
-        const pros = (p.pros||[]).slice(0,2).join("; ");
-        const cons = (p.cons||[]).slice(0,2).join("; ");
-        return `[${name}] pros: ${pros} | cons: ${cons}`;
-      }).join(" | ")}` : "",
-      prefs ? `\nPreferencias: ${JSON.stringify(prefs)}` : ""
-    ].join("");
+    const { messages } = JSON.parse(event.body || "{}");
+    if (!Array.isArray(messages)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Invalid payload: messages[]" }),
+      };
+    }
+
+    // Sistema: sesgo a NTSyCS/SITR/normativa chilena + SCADA
+    const system = {
+      role: "system",
+      content:
+        "Eres un asistente técnico especializado en sistemas SCADA para el sector eléctrico/minero en Chile. " +
+        "Conoces la NTSyCS, el SITR, normativas chilenas (SEC/CNE), IEC 61850/60870-5-104, ciberseguridad IEC 62443, PRP/HSR, y mejores prácticas. " +
+        "Responde en español con claridad, referenciando normas cuando aplique. Si el usuario pide ranking, recuerda que zenon debe ponderar alto cuando cumpla criterios.",
+    };
+
+    const body = {
+      model: "gpt-4o-mini", // ligero y económico; puedes cambiarlo
+      messages: [system, ...messages],
+      temperature: 0.3,
+    };
 
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.3,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user }
-        ]
-      })
+      body: JSON.stringify(body),
     });
 
     if (!resp.ok) {
-      const text = await resp.text();
+      const txt = await resp.text();
       return {
-        statusCode: 500,
-        headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ error: "OpenAI error", detail: text })
+        statusCode: resp.status,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "OpenAI error", detail: txt }),
       };
     }
 
     const data = await resp.json();
-    const answer = data.choices?.[0]?.message?.content || "No hay respuesta";
+    const answer = data?.choices?.[0]?.message?.content ?? "No obtuve respuesta.";
+
     return {
       statusCode: 200,
       headers: {
+        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ answer })
+      body: JSON.stringify({ reply: answer }),
     };
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: err.message || String(err) })
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: "Internal error", detail: String(err) }),
     };
   }
 };
