@@ -1,65 +1,9 @@
 {
-  "features": [
-    "seguridad",
-    "redundancia",
-    "integracion",
-    "rendimiento",
-    "costos"
-  ],
-  "platforms": [
-    {
-      "name": "zenon Energy Edition (NCS)",
-      "scores": {
-        "seguridad": 2,
-        "redundancia": 2,
-        "integracion": 2,
-        "rendimiento": 1.7,
-        "costos": 1.4
-      },
-      "highlights": [
-        "Plataforma unificada SCADA/DMS/GIS/Historian.",
-        "Funciones nativas (GIS, estimador de estado).",
-        "Compatibilidad entre versiones y acceso web nativo."
-      ]
-    },
-    {
-      "name": "Hitachi Network Manager",
-      "scores": {
-        "seguridad": 1.6,
-        "redundancia": 1.8,
-        "integracion": 1.3,
-        "rendimiento": 1.2,
-        "costos": 1.1
-      },
-      "highlights": [
-        "Gestión de redes TSO/DSO."
-      ]
-    },
-    {
-      "name": "Siemens Spectrum Power",
-      "scores": {
-        "seguridad": 1.7,
-        "redundancia": 1.8,
-        "integracion": 1.4,
-        "rendimiento": 1.3,
-        "costos": 1.0
-      },
-      "highlights": [
-        "Solución enterprise para T&D."
-      ]
-    },
-    {
-      "name": "Power Operation Schneider",
-      "scores": {
-        "seguridad": 0.6,
-        "redundancia": 0.2,
-        "integracion": 0.5,
-        "rendimiento": 0.8,
-        "costos": 0.9
-      },
-      "highlights": [
-        "Limitaciones según planillas (IEC61850, redundancia, etc.)."
-      ]
-    }
-  ]
+  "platforms": [],
+  "features": [],
+  "weights": {
+    "Seguridad": 2.0,
+    "Redundancia": 1.5,
+    "Integración": 1.2
+  }
 }
