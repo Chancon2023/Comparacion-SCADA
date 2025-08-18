@@ -5,6 +5,22 @@ import {
 } from "recharts";
 import { COLORS, scoreValue, computeRadarRow } from "../components/utils";
 
+import { useNavigate } from "react-router-dom";
+
+// dentro del componente:
+const navigate = useNavigate();
+
+// En el header o arriba del contenido:
+<div className="mb-4 flex items-center gap-3">
+  <button
+    onClick={() => navigate(-1)}
+    className="rounded-2xl px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 shadow"
+  >
+    ← Volver
+  </button>
+</div>
+
+
 // …
 
 // (opcional) función compacta para armar filas del radar de forma segura
