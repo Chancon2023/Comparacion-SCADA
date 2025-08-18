@@ -6,6 +6,20 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
+import { useNavigate } from "react-router-dom";
+// …
+const navigate = useNavigate();
+// …
+<div className="mb-4">
+  <button
+    onClick={() => navigate(-1)}  // o navigate("/")
+    className="rounded-2xl px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 shadow"
+  >
+    ← Volver
+  </button>
+</div>
+
+
 export default function RadarDetail() {
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState([]);
