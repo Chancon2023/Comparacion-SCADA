@@ -1,74 +1,138 @@
-import React, { useState } from "react";
-import { askAssistant } from "../lib/ai";
+import React, { useState, useRef, useEffect } from "react";
+import { search } from "../lib/localSearch";
+import { hasDocs } from "../lib/localDocs";
 
 export default function AssistantChat() {
   const [messages, setMessages] = useState([
-    { role: "model", text: "Hola, soy tu asistente SCADA. ¿Qué necesitas?" },
+    {
+      role: "assistant",
+      content:
+        "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y selección de plataformas. Usa “Cargar documentos” para subir normativa/plantillas y te respondo en base a eso.",
+    },
   ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [note, setNote] = useState("");
+  const [pending, setPending] = useState(false);
+  const inputRef = useRef(null);
+  const scrollerRef = useRef(null);
 
-  const send = async () => {
-    const content = input.trim();
-    if (!content) return;
-    setInput("");
-    const next = [...messages, { role: "user", text: content }];
-    setMessages(next);
-    setLoading(true);
-    setNote("");
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({
+      top: scrollerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  const ask = async (text) => {
+    if (!text?.trim()) return;
+    setMessages((m) => [...m, { role: "user", content: text }]);
+    setPending(true);
 
     try {
-      // Llama a la function (asegura que el primer elemento sea 'user')
-      const startIndex = Math.max(0, next.findIndex(m => m.role === "user"));
-      const slice = startIndex >= 0 ? next.slice(startIndex) : next;
-      const answer = await askAssistant(slice, { temperature: 0.4 });
-      setMessages(prev => [...prev, { role: "model", text: answer || "(sin respuesta)" }]);
-    } catch (err) {
-      setMessages(prev => [...prev, { role: "model", text: `No pude consultar el motor inteligente. Detalle: ${err.message}` }]);
+      // Respuesta local basada en documentos cargados
+      if (!hasDocs()) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content:
+              "Aún no has cargado documentos. Usa el botón “Cargar documentos” y luego pregunta de nuevo. También puedo responder en términos generales si lo indicas.",
+          },
+        ]);
+        setPending(false);
+        return;
+      }
+
+      const hits = search(text, 3);
+      if (!hits.length) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content:
+              "No encontré coincidencias claras en tus documentos. Prueba con otra redacción o carga más material. Si quieres, te sugiero términos para buscar en la web.",
+          },
+        ]);
+        setPending(false);
+        return;
+      }
+
+      const bullets = hits
+        .map(
+          (h) =>
+            `• **${h.source}** → “…${h.text.slice(0, 220).replace(/\s+/g, " ")}…”`
+        )
+        .join("\n");
+
+      const answer =
+        `Esto encontré en tus documentos:\n\n${bullets}\n\n` +
+        `> Sugerencia: si necesitas una recomendación concreta, dime el contexto (p.ej. subestaciones, ciberseguridad IEC 62443-3-3, telecontrol, etc.).`;
+
+      setMessages((m) => [...m, { role: "assistant", content: answer }]);
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content:
+            "Hubo un problema analizando el contenido local. Intenta de nuevo o borra y vuelve a cargar los documentos.",
+        },
+      ]);
+      console.error(e);
     } finally {
-      setLoading(false);
+      setPending(false);
     }
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow p-4 md:p-6">
-      {note && (
-        <div className="mb-3 text-xs px-3 py-2 rounded bg-amber-50 text-amber-900 border border-amber-200">
-          {note}
-        </div>
-      )}
+  const onSubmit = (e) => {
+    e.preventDefault();
+    const v = inputRef.current?.value || "";
+    inputRef.current.value = "";
+    ask(v);
+  };
 
-      <div className="space-y-3 mb-4 max-h-[55vh] overflow-y-auto">
-        {messages.map((m, idx) => (
+  return (
+    <div className="rounded-2xl border bg-white shadow-sm">
+      <div
+        ref={scrollerRef}
+        className="max-h-[60vh] overflow-y-auto p-4 space-y-3"
+      >
+        {messages.map((m, i) => (
           <div
-            key={idx}
-            className={`px-3 py-2 rounded-xl max-w-[85%] ${
-              m.role === "user" ? "ml-auto bg-slate-900 text-white" : "bg-slate-100 text-slate-900"
-            }`}
-          >
-            {m.text}
-          </div>
+            key={i}
+            className={
+              m.role === "user"
+                ? "ml-auto max-w-[80%] rounded-2xl bg-slate-900 px-4 py-2 text-white"
+                : "max-w-[80%] rounded-2xl bg-slate-50 px-4 py-2"
+            }
+            dangerouslySetInnerHTML={{ __html: md(m.content) }}
+          />
         ))}
-        {loading && <div className="text-xs text-slate-500">Pensando…</div>}
+
+        {pending && (
+          <div className="max-w-[80%] rounded-2xl bg-slate-50 px-4 py-2 text-slate-600">
+            Pensando…
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <form onSubmit={onSubmit} className="flex items-center gap-2 p-3">
         <input
-          className="flex-1 rounded-xl border px-3 py-2 outline-none"
+          ref={inputRef}
+          type="text"
           placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
+          className="flex-1 rounded-xl border px-4 py-2 outline-none"
         />
         <button
-          onClick={send}
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-60"
-          disabled={loading}
+          type="submit"
+          className="rounded-xl bg-slate-900 px-4 py-2 text-white"
         >
           Enviar
         </button>
-      </div>
+      </form>
     </div>
   );
+}
+
+// Markdown muy básico para **negrita**
+function md(s) {
+  return (s || "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
