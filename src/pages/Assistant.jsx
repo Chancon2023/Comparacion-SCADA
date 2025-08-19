@@ -1,96 +1,101 @@
-import React, { useState } from "react";
+// src/pages/Assistant.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import UploadPanel from "../components/UploadPanel";
-import { searchCorpus, getLocalCorpusCount } from "../lib/localRag";
+import { answerWithLocalRag, loadDocs, saveDocs } from "../lib/localRag";
 
 export default function Assistant() {
-  const [messages, setMessages] = useState([
-    { role: "assistant", text: "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y selección de plataformas. Sube documentación y te respondo en base a eso o pregúntame en general." }
-  ]);
+  const [docs, setDocs] = useState([]);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([
+    { role: "bot", content: "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y selección de plataformas para minería. Sube documentación en 'Cargar documentos' y pregúntame." }
+  ]);
   const [busy, setBusy] = useState(false);
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    setDocs(loadDocs());
+  }, []);
+
+  useEffect(() => {
+    if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const onAddDocs = (newDocs) => {
+    const merged = [...docs, ...newDocs];
+    setDocs(merged);
+    saveDocs(merged);
+    setMessages(m => [...m, { role: "bot", content: `He cargado ${newDocs.length} documento(s). Ya puedes preguntar.` }]);
+  };
 
   const send = async () => {
     const q = input.trim();
     if (!q) return;
-
-    const mine = { role: "user", text: q };
-    setMessages((m) => [...m, mine]);
+    setMessages(m => [...m, { role: "user", content: q }]);
     setInput("");
     setBusy(true);
-
     try {
-      // Busca en el corpus local
-      const hits = searchCorpus(q, { topK: 5 });
-      let reply = "";
-
-      if (hits.length) {
-        reply += `He encontrado ${hits.length} resultado(s) en tus documentos (${getLocalCorpusCount()} total).\n\n`;
-        hits.forEach((h, i) => {
-          reply += `• ${i + 1}) ${h.name}\n   ${h.snippet}\n\n`;
-        });
-        reply +=
-          "Resumen: las líneas anteriores son fragmentos donde aparecen tus términos. Si quieres, sube más documentos o haz la pregunta con mayor contexto (norma, capítulo, requisito, etc.).";
-      } else {
-        reply =
-          "Aún no veo coincidencias en tus documentos locales. Puedes usar el botón 'Cargar documentos' arriba y volver a preguntar. También puedo responder en términos generales si me indicas el enfoque.";
-      }
-
-      setMessages((m) => [...m, { role: "assistant", text: reply }]);
+      const { answer, sources } = await answerWithLocalRag(q, docs);
+      const srcBlock = sources?.length
+        ? "\n\n**Fuentes**:\n" + sources.map(s => `- ${s.name}`).join("\n")
+        : "";
+      setMessages(m => [...m, { role: "bot", content: answer + srcBlock }]);
     } catch (e) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text:
-            "No pude consultar la base local. Detalle: " +
-            (e?.message || String(e)),
-        },
-      ]);
+      console.error(e);
+      setMessages(m => [...m, { role: "bot", content: "Ocurrió un error al consultar los documentos." }]);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6">
-      {/* PANEL DE CARGA (aquí está el botón) */}
-      <UploadPanel />
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <h1 className="text-2xl md:text-3xl font-bold mb-2">Asistente</h1>
+      <p className="text-sm text-slate-600 mb-4">
+        Pregunta sobre NTSyCS, SITR, IEC 62443 y selección de SCADA para minería. Carga tu documentación para que las respuestas se basen en ella.
+      </p>
 
-      {/* Chat */}
-      <div className="rounded-xl border bg-white p-3 md:p-4">
-        <div className="space-y-3">
-          {messages.map((m, i) => (
+      <UploadPanel onAdd={onAddDocs} />
+
+      <div className="text-xs text-slate-500 mb-3">
+        Documentos en memoria: <strong>{docs.length}</strong>
+      </div>
+
+      <div className="bg-white rounded-2xl border shadow-sm p-4 space-y-3">
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "text-right" : ""}>
             <div
-              key={i}
               className={
-                m.role === "user"
-                  ? "ml-auto max-w-[90%] rounded-2xl px-4 py-2 bg-slate-900 text-white"
-                  : "max-w-[90%] rounded-2xl px-4 py-2 bg-slate-50"
+                "inline-block rounded-2xl px-3 py-2 " +
+                (m.role === "user"
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-50")
               }
             >
-              {m.text}
+              <div className="prose prose-slate max-w-none whitespace-pre-wrap">
+                {m.content}
+              </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
 
-        <div className="flex gap-2 mt-3">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?"
-            className="flex-1 rounded-xl border px-3 py-2"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") send();
-            }}
-          />
-          <button
-            onClick={send}
-            disabled={busy}
-            className="px-4 py-2 rounded-xl border bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {busy ? "Enviando…" : "Enviar"}
-          </button>
-        </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          className="flex-1 rounded-xl border px-3 py-2"
+          placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          disabled={busy}
+        />
+        <button
+          onClick={send}
+          disabled={busy}
+          className="px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-50"
+        >
+          {busy ? "Pensando…" : "Enviar"}
+        </button>
       </div>
     </div>
   );
