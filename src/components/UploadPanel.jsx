@@ -1,55 +1,60 @@
 // src/components/UploadPanel.jsx
-import React, { useRef, useState } from "react";
-import { parseFilesToDocs, saveDocs } from "../lib/localRag";
+import React, { useState } from "react";
+import { parseFilesToDocs, saveDocs, clearDocs, loadDocs } from "../lib/localRag";
 
-export default function UploadPanel({ onAdd, disabled=false }) {
-  const inputRef = useRef(null);
-  const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState([]);
+export default function UploadPanel({ compact = false, onChange }) {
+  const [files, setFiles] = useState([]);
+  const [count, setCount] = useState(loadDocs().length);
 
-  const onPick = (e) => {
-    setSelected(Array.from(e.target.files || []));
+  const handlePick = (e) => setFiles(Array.from(e.target.files || []));
+
+  const handleLoad = async () => {
+    if (!files.length) return;
+    const docs = await parseFilesToDocs(files);
+    const total = saveDocs(docs);
+    setCount(total);
+    setFiles([]);
+    onChange?.(total);
   };
 
-  const handleAdd = async () => {
-    if (!selected.length) return;
-    setBusy(true);
-    try {
-      const docs = await parseFilesToDocs(selected);
-      if (docs?.length) {
-        onAdd?.(docs);
-        saveDocs((prev => prev)); // no-op: parent will save; kept for backwards compatibility
-      }
-      setSelected([]);
-      if (inputRef.current) inputRef.current.value = "";
-    } finally {
-      setBusy(false);
-    }
+  const handleClear = () => {
+    clearDocs();
+    setCount(0);
+    onChange?.(0);
   };
 
   return (
-    <div className="mb-4 p-3 rounded-xl border bg-white/70">
-      <div className="text-sm text-slate-700 mb-2">
-        <strong>Sube PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</strong>.
-        El análisis es local (en tu navegador); los textos se guardan en <code>localStorage</code>.
+    <div className={`rounded-xl ${compact ? "" : "bg-white shadow"} p-4 border border-slate-200`}>
+      <div className="text-sm text-slate-600 mb-2">
+        Sube <strong>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</strong>.
+        Los textos se procesan <em>localmente</em> y se guardan en tu navegador (localStorage).
       </div>
-      <div className="flex flex-col md:flex-row gap-2 items-start md:items-center">
+
+      <div className="flex flex-col md:flex-row gap-2 md:items-center">
         <input
-          ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.txt,.md,.csv,.json,.xlsx,.xls"
-          onChange={onPick}
-          className="block w-full md:w-auto"
-          disabled={disabled || busy}
+          onChange={handlePick}
+          className="block w-full md:w-auto text-sm file:mr-3 file:py-2 file:px-3
+                     file:rounded-lg file:border-0 file:bg-slate-900 file:text-white
+                     hover:file:bg-slate-800"
+          accept=".pdf,.txt,.md,.csv,.json,.xls,.xlsx"
         />
         <button
-          onClick={handleAdd}
-          disabled={disabled || busy || !selected.length}
-          className="px-3 py-2 rounded-lg bg-slate-900 text-white disabled:opacity-50"
+          onClick={handleLoad}
+          className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
         >
-          {busy ? "Procesando..." : `Cargar documentos${selected.length ? ` (${selected.length})` : ""}`}
+          Cargar documentos
         </button>
+        <button
+          onClick={handleClear}
+          className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200"
+        >
+          Borrar todo
+        </button>
+        <div className="text-sm text-slate-500 ml-auto">
+          Índice local: <span className="font-medium">{count}</span> documentos
+        </div>
       </div>
     </div>
   );
