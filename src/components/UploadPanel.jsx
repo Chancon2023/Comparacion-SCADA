@@ -1,62 +1,61 @@
 // src/components/UploadPanel.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { parseFilesToDocs, saveDocs, loadDocs, clearDocs } from "../lib/localRag";
 
-export default function UploadPanel({ onLoaded }) {
-  const inputRef = useRef(null);
-  const [count, setCount] = useState(loadDocs().length);
+export default function UploadPanel() {
+  const inp = useRef(null);
+  const [count, setCount] = useState(0);
 
-  const handlePick = () => inputRef.current?.click();
+  useEffect(() => {
+    setCount(loadDocs().length);
+  }, []);
 
-  const handleFiles = async (ev) => {
-    const files = Array.from(ev.target.files || []);
+  const onAdd = async () => {
+    const files = Array.from(inp.current?.files || []);
     if (!files.length) return;
     const docs = await parseFilesToDocs(files);
-    const prev = loadDocs();
-    saveDocs([...prev, ...docs]);
-    setCount(loadDocs().length);
-    onLoaded?.(loadDocs());
-    ev.target.value = ""; // reset input
+    const merged = saveDocs(docs);
+    setCount(merged.length);
+    // limpia selección
+    if (inp.current) inp.current.value = "";
   };
 
-  const handleClear = () => {
+  const onClear = () => {
     clearDocs();
     setCount(0);
-    onLoaded?.([]);
   };
 
   return (
-    <div className="mb-4 p-3 rounded-xl border bg-white shadow-sm">
-      <div className="text-sm text-slate-700 mb-2">
-        Sube <strong>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</strong>. El análisis es local
-        (navegador) y se guarda en <code>localStorage</code>.
+    <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+      <div className="text-sm text-slate-600 mb-2">
+        Sube <b>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</b>. El análisis es local
+        (en tu navegador) y se guarda en <code>localStorage</code>.
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col md:flex-row gap-2 items-start md:items-center">
         <input
-          ref={inputRef}
+          ref={inp}
           type="file"
           multiple
           accept=".pdf,.txt,.md,.csv,.json,.xls,.xlsx"
-          onChange={handleFiles}
-          className="hidden"
+          className="block w-full md:w-auto"
         />
         <button
-          onClick={handlePick}
+          onClick={onAdd}
           className="px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800"
         >
-          Elegir archivos
+          Cargar documentos
         </button>
         <button
-          onClick={handleClear}
-          className="px-3 py-2 rounded-lg border hover:bg-slate-50"
+          onClick={onClear}
+          className="px-3 py-2 rounded-lg border border-slate-300 hover:bg-white"
         >
-          Vaciar documentos
+          Vaciar índice
         </button>
 
-        <div className="ml-auto text-sm text-slate-600 self-center">
-          Documentos cargados: <strong>{count}</strong>
-        </div>
+        <span className="text-sm text-slate-600 md:ml-2">
+          {count ? `Indexados: ${count}` : "Aún no has cargado documentos."}
+        </span>
       </div>
     </div>
   );
