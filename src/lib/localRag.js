@@ -1,231 +1,180 @@
 // src/lib/localRag.js
-// Browser-only local RAG: parse PDF/TXT/CSV/MD/JSON/XLS/XLSX in the client.
-// No new npm deps: we load pdf.js & xlsx via ESM CDN at runtime.
+// Motor RAG local (mejorado):
+// - Indexa PDFs/TXT/CSV/JSON/Excel (parsing en UploadPanel)
+// - Guarda chunks + metadata en localStorage
+// - Búsqueda híbrida: BM25 + Embeddings (MiniLM) + MMR
+// - Respuesta extractiva con modelo QA local (XLM-R SQuAD2)
+// - Todo 100% local (sin APIs).
 
-const STORAGE_KEY = "RAG_DOCS_V1";
+import { loadLocalAI, getLocalAISatus, embed, embedBatch, rerankWithEmbeddings, qa, selectMMR } from "./qaLocal";
 
-export function loadDocs() {
+const KEY = "localRAG:v2:docs";
+
+// --------------------------- Storage --------------------------------
+export function saveDocuments(docs) {
+  localStorage.setItem(KEY, JSON.stringify(docs));
+}
+
+export function loadDocuments() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
   } catch (e) {
-    console.error("loadDocs error", e);
+    console.error("loadDocuments error", e);
     return [];
   }
 }
 
-export function saveDocs(docs) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-  } catch (e) {
-    console.error("saveDocs error", e);
+export function clearDocuments() {
+  localStorage.removeItem(KEY);
+}
+
+// --------------------------- Chunks & Index -------------------------
+// Divide texto en chunks cortos ~800-1200 caracteres
+function chunkText(text, { min = 800, max = 1200, overlap = 150 } = {}) {
+  const out = [];
+  let i = 0;
+  while (i < text.length) {
+    let end = Math.min(i + max, text.length);
+    // intenta cortar en punto
+    const slice = text.slice(i, end);
+    let cut = slice.lastIndexOf(". ");
+    if (cut < min) cut = slice.lastIndexOf("\n");
+    if (cut < min) cut = slice.lastIndexOf(" ");
+    if (cut < min) cut = max;
+    out.push(text.slice(i, i + cut).trim());
+    i = i + cut - overlap;
+    if (i < 0) i = 0;
   }
+  return out.filter(Boolean);
 }
 
-function extOf(name='') {
-  const i = name.lastIndexOf(".");
-  return i >= 0 ? name.slice(i+1).toLowerCase() : "";
+function tokenize(text) {
+  return (text.toLowerCase().match(/[a-záéíóúñ0-9\/\.\-_%]+/gi) || []);
 }
 
-async function readAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(reader.result);
-    reader.readAsText(file);
-  });
-}
-
-async function readAsArrayBuffer(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(reader.result);
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-// --- PDF via pdf.js from CDN (ESM) ---
-async function pdfToText(file) {
-  // pdfjs v4.x
-  const pdfjsLib = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.min.mjs");
-  // set worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.worker.min.mjs";
-
-  const data = await readAsArrayBuffer(file);
-  const loadingTask = pdfjsLib.getDocument({ data });
-  const pdf = await loadingTask.promise;
-  let text = "";
-  const maxPages = Math.min(pdf.numPages, 200); // prevent huge PDFs
-  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const content = await page.getTextContent();
-    const strings = content.items.map((it) => it.str);
-    text += strings.join(" ") + "\n";
+// BM25 simple
+function buildBM25Index(chunks) {
+  const N = chunks.length;
+  const docFreq = new Map();
+  const tokenized = chunks.map(c => tokenize(c.text));
+  for (const toks of tokenized) {
+    const unique = new Set(toks);
+    for (const t of unique) docFreq.set(t, (docFreq.get(t) || 0) + 1);
   }
-  return text;
-}
-
-// --- Excel via SheetJS from CDN (ESM) ---
-async function excelToText(file) {
-  // +esm variant works in browser modules
-  const XLSX = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
-  const data = await readAsArrayBuffer(file);
-  const wb = XLSX.read(data, { type: "array" });
-  let out = [];
-  for (const sheetName of wb.SheetNames) {
-    const ws = wb.Sheets[sheetName];
-    // Convert to CSV and then plain text
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    out.push(`# ${sheetName}\n${csv}`);
+  const idfs = new Map();
+  for (const [t, df] of docFreq) {
+    idfs.set(t, Math.log((N - df + 0.5) / (df + 0.5) + 1));
   }
-  return out.join("\n\n");
-}
-
-async function jsonToText(file) {
-  try {
-    const raw = await readAsText(file);
-    const obj = JSON.parse(raw);
-    // Pretty print keys & values (flatten simple objects)
-    return typeof obj === "object" ? JSON.stringify(obj, null, 2) : String(obj);
-  } catch {
-    return await readAsText(file);
+  function score(query, idx) {
+    const qToks = tokenize(query);
+    const toks = tokenized[idx];
+    const freq = new Map();
+    for (const t of toks) freq.set(t, (freq.get(t) || 0) + 1);
+    const k1 = 1.5, b = 0.75;
+    const avgdl = tokenized.reduce((a, b) => a + b.length, 0) / N;
+    const dl = toks.length;
+    let s = 0;
+    for (const t of qToks) {
+      const f = freq.get(t) || 0;
+      const idf = idfs.get(t) || 0;
+      s += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / avgdl));
+    }
+    return s;
   }
+  return { score };
 }
 
-export async function fileToText(file) {
-  const type = (file.type || "").toLowerCase();
-  const extension = extOf(file.name);
-
-  // Broad type checks then fall back to extension
-  if (type.includes("pdf") || extension === "pdf") return pdfToText(file);
-
-  if (
-    type.includes("sheet") ||
-    type.includes("excel") ||
-    ["xlsx", "xls"].includes(extension)
-  ) return excelToText(file);
-
-  if (
-    type.includes("csv") ||
-    extension === "csv"
-  ) return await readAsText(file);
-
-  if (type.includes("json") || extension === "json") return jsonToText(file);
-
-  // plain text / markdown
-  return await readAsText(file);
-}
-
-// Turn Files into internal docs [{id, name, text}]
-export async function parseFilesToDocs(fileList) {
-  const docs = [];
-  const arr = Array.from(fileList || []);
-  for (const f of arr) {
-    try {
-      const text = await fileToText(f);
-      if (text && text.trim()) {
-        docs.push({
-          id: crypto.randomUUID(),
-          name: f.name,
-          text,
-        });
-      }
-    } catch (e) {
-      console.warn("Error parsing file", f?.name, e);
+// Construye el índice híbrido (BM25 + embeddings lazies)
+export async function buildIndexFromRaw(docs = []) {
+  // docs: [{id, name, type, text}]
+  const chunks = [];
+  let id = 0;
+  for (const d of docs) {
+    const parts = chunkText(d.text);
+    for (const c of parts) {
+      chunks.push({ id: id++, text: c, meta: { source: d.name } });
     }
   }
-  return docs;
+  const bm25 = buildBM25Index(chunks);
+  return { chunks, bm25 };
 }
 
-// --- Very small retriever: split in chunks and score by token overlap ---
-function normalize(s="") {
-  return s
-    .normalize("NFKD")
-    .replace(/[^\w\sáéíóúñüÁÉÍÓÚÑÜ/.-]/g, " ")
-    .toLowerCase();
-}
-
-function tokenize(s="") {
-  return normalize(s).split(/\s+/).filter(Boolean);
-}
-
-function chunkText(text, chunkSize = 1200, overlap = 120) {
-  const tokens = tokenize(text);
-  const chunks = [];
-  for (let i = 0; i < tokens.length; i += (chunkSize - overlap)) {
-    const slice = tokens.slice(i, i + chunkSize);
-    if (!slice.length) break;
-    chunks.push(slice.join(" "));
-  }
-  return chunks;
-}
-
-function score(query, chunk) {
-  const q = new Set(tokenize(query));
-  const c = tokenize(chunk);
-  let hits = 0;
-  for (const t of c) if (q.has(t)) hits++;
-  // normalize by length
-  return hits / Math.sqrt(c.length + 1);
-}
-
-export function buildIndex(docs) {
-  // Build array of {docId, name, chunk, score?}
-  const index = [];
-  for (const d of docs) {
-    const chunks = chunkText(d.text);
-    for (const ch of chunks) index.push({ docId: d.id, name: d.name, chunk: ch });
-  }
-  return index;
-}
-
-export function searchIndex(index, query, k = 6) {
-  const scored = index.map((it) => ({ ...it, _score: score(query, it.chunk) }));
-  scored.sort((a, b) => b._score - a._score);
-  return scored.slice(0, k).filter(x => x._score > 0);
-}
-
-export function snippet(s, n = 320) {
-  if (s.length <= n) return s;
-  return s.slice(0, n) + "...";
-}
-
-export async function answerWithLocalRag(question, docs) {
-  if (!docs?.length) {
+// --------------------------- Search & Answer ------------------------
+export async function answer(question, { smart = true, topK = 6 } = {}) {
+  const docs = loadDocuments();
+  if (!docs.length) {
     return {
-      answer:
-        "Aún no has cargado documentos. Sube normativa/plantillas con el botón **Cargar documentos** y vuelve a preguntar.",
+      text: "Aún no has cargado documentos. Usa el botón “Cargar documentos” y luego pregunta de nuevo.",
       sources: [],
     };
   }
-  const index = buildIndex(docs);
-  const hits = searchIndex(index, question, 6);
 
-  if (!hits.length) {
-    return {
-      answer:
-        "No encontré coincidencias directas en los documentos cargados. Si lo deseas, puedo sugerir términos para que investigues en la web o subir más documentos relacionados.",
-      sources: [],
-    };
-  }
-  // Compose a simple answer with top snippets
-  const bullets = hits.map(
-    (h, i) => `• **${h.name}** → ${snippet(h.chunk, 220)}`
-  );
-  const answer = [
-    "Con base en los documentos cargados, estos son los pasajes más relevantes para tu consulta:",
-    "",
-    ...bullets,
-    "",
-    "Si necesitas, puedo refinar la búsqueda con más palabras clave o filtrar por un documento específico."
-  ].join("\n");
+  // Build (o cachear) índice sencillo en cada consulta (rápido en navegador)
+  const { chunks, bm25 } = await buildIndexFromRaw(docs);
 
-  const sources = hits.map((h) => ({
-    name: h.name,
-    excerpt: snippet(h.chunk, 280),
-    score: h._score,
+  // 1) Ranking lexical (BM25)
+  let prelim = chunks.map(c => ({
+    ...c,
+    bm25: bm25.score(question, c.id),
   }));
-  return { answer, sources };
+  prelim.sort((a, b) => b.bm25 - a.bm25);
+  prelim = prelim.slice(0, Math.max(20, topK * 2));
+
+  // 2) Si smart, reranking con embeddings + MMR
+  let finalCtx = prelim.slice(0, topK);
+  if (smart) {
+    await loadLocalAI();
+    const reranked = await rerankWithEmbeddings(question, prelim, { topK: Math.max(10, topK * 2) });
+    finalCtx = selectMMR(reranked, { topK, lambda: 0.65 });
+  }
+
+  const context = finalCtx.map(c => c.text).join("\n\n");
+  const sources = finalCtx.map(c => ({
+    source: c.meta?.source || "desconocido",
+    preview: c.text.slice(0, 200) + (c.text.length > 200 ? "…" : ""),
+  }));
+
+  if (!smart) {
+    // Respuesta determinista (no IA): extracto + bullets
+    const snippet = context.slice(0, 800);
+    return {
+      text:
+        "Respuesta basada en tus documentos (modo rápido, sin IA):\n\n" +
+        snippet +
+        (context.length > 800 ? "…" : ""),
+      sources,
+    };
+  }
+
+  // 3) QA extractivo local (modelo)
+  try {
+    const res = await qa(question, context);
+    let ans = res?.answer?.trim();
+    const conf = typeof res?.score === "number" ? res.score : 0;
+    if (!ans || conf < 0.05) {
+      // fallback cuando el modelo no encuentra span claro
+      return {
+        text:
+          "No encontré una respuesta extractiva clara en los fragmentos. " +
+          "Revisa las fuentes destacadas o formula la pregunta con más contexto.",
+        sources,
+      };
+    }
+    return {
+      text: ans + `\n\n(confianza: ${(conf * 100).toFixed(1)}%)`,
+      sources,
+    };
+  } catch (e) {
+    console.warn("QA local falló, devolviendo resumen", e);
+    const snippet = context.slice(0, 800);
+    return {
+      text:
+        "Respuesta basada en tus documentos (resumen porque el modelo no respondió):\n\n" +
+        snippet +
+        (context.length > 800 ? "…" : ""),
+      sources,
+    };
+  }
 }
