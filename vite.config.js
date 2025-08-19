@@ -1,21 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
+// Vite config. If your project already has a vite.config.{js,ts}, keep your file
+// and just ensure @vitejs/plugin-react is present. This minimal config fixes
+// "vite not found" and rolls with the default settings.
 export default defineConfig({
-  plugins: [react()],
-  build: {
-    rollupOptions: {
-      // Evita que Rollup intente empaquetar libs que causan problemas en Netlify
-      external: [
-        'papaparse',
-        'pdfjs-dist',
-        'pdfjs-dist/legacy/build/pdf'
-      ]
-    }
-  },
-  optimizeDeps: {
-    // asegúrate de que vite detecte papaparse en dev/preview
-    include: ['papaparse']
-  }
+  plugins: [react()]
 })
