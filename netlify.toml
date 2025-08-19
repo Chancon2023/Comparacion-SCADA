@@ -1,8 +1,7 @@
 [build]
-  # Ensure dependencies are installed in CI before building
   command = "npm ci && npm run build"
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18.18.0"
-  NPM_FLAGS = "--no-audit --no-fund"
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--silent"
