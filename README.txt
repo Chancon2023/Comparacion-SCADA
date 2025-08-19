@@ -1,28 +1,35 @@
-# Local Assistant Patch (sin APIs)
-Archivos listos para **reemplazar / agregar** en tu proyecto Vite + React.
+# Patch: Conclusión de Minería + Exportar PDF
 
-## Archivos incluidos
-- `src/lib/localRag.js`  → Motor de indexación y búsqueda local (FlexSearch + pdfjs + xlsx)
-- `src/pages/Assistant.jsx` → Nueva pantalla del asistente con **uploader** y chat local
+Este patch añade **`src/components/MiningConclusion.jsx`** con la sección fija de **Conclusión para Cliente en la Industria Minera** y el botón **Exportar PDF** (cliente-side).
 
-## Instalación
-1. Instala dependencias:
-   ```bash
-   npm i flexsearch pdfjs-dist xlsx
-   ```
-2. Copia los archivos en sus rutas (`src/lib/` y `src/pages/`).
-3. Asegura la ruta en `App.jsx`:
-   ```jsx
-   import Assistant from "./pages/Assistant";
-   // ...
-   <Route path="/assistant" element={<Assistant />} />
-   ```
-4. En el `Navbar`, enlaza a `/assistant`.
+## 1) Copia de archivos
+Copia la carpeta `src/components/MiningConclusion.jsx` dentro de tu proyecto (misma ruta).
 
-## Uso
-- Abre la pestaña **Asistente**.
-- Sube tus documentos **PDF, XLSX/XLS, TXT, MD, CSV, JSON**.
-- Pregunta en el chat: el motor devuelve fragmentos relevantes con **citas**.
-- El índice se guarda en `localStorage` (sobrevive a recargas).
+## 2) Instala dependencias
+En el root del proyecto:
+```bash
+npm i jspdf html2canvas
+```
 
-> Todo corre en tu navegador. **No** usa Netlify Functions ni APIs.
+## 3) Inserta el bloque en la página de Ranking
+Edita `src/pages/Ranking.jsx`:
+
+- Arriba, agrega:
+```jsx
+import MiningConclusion from "../components/MiningConclusion";
+```
+
+- Al final del JSX (debajo del ranking), agrega:
+```jsx
+<MiningConclusion />
+```
+
+## 4) Probar
+```
+npm run dev
+# o build + preview
+npm run build && npm run preview
+```
+Abre la página **Ranking**. Verás la sección y el botón **Exportar PDF**.
+
+> Nota: el componente evita dependencias de iconos externas para minimizar riesgos de build en Netlify.

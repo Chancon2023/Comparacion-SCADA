@@ -1,59 +1,48 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 /**
- * Conclusión para cliente en minería + Exportar (sin dependencias externas).
- * El botón "Exportar" abre una ventana con el bloque y dispara window.print().
+ * MiningConclusion.jsx
+ * Sección fija con "Conclusión para Cliente en la Industria Minera"
+ * + botón "Exportar PDF" (cliente-side con jsPDF + html2canvas).
+ *
+ * Dependencias (agregar a tu proyecto):
+ *   npm i jspdf html2canvas
  */
 export default function MiningConclusion() {
   const ref = useRef(null);
 
-  const handleExport = useCallback(() => {
+  const exportPDF = async () => {
     const node = ref.current;
     if (!node) return;
+    const canvas = await html2canvas(node, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
 
-    // Clonamos el HTML del bloque
-    const content = node.innerHTML;
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
 
-    // Abre una ventana con estilos mínimos y dispara print()
-    const win = window.open("", "_blank", "width=900,height=1200");
-    if (!win) return;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    win.document.open();
-    win.document.write(`
-      <!doctype html>
-      <html lang="es">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width,initial-scale=1" />
-          <title>Conclusión minería</title>
-          <style>
-            /* Estilos mínimos para impresión */
-            body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial; margin: 24px; color: #0f172a; }
-            h1, h2, h3 { margin: 0 0 12px; }
-            .wrap { max-width: 900px; }
-            .title { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
-            .note { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
-            ul { padding-left: 18px; }
-            li { margin: 6px 0; }
-            .muted { color: #334155; }
-            hr { border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            ${content}
-          </div>
-          <script>
-            window.onload = () => {
-              window.print();
-              setTimeout(() => window.close(), 300);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    win.document.close();
-  }, []);
+    // Paginado vertical si el bloque supera el alto de una hoja
+    let y = 0;
+    let remaining = imgHeight;
+    while (remaining > 0) {
+      pdf.addImage(imgData, "PNG", 0, 0 - y, imgWidth, imgHeight);
+      remaining -= pageHeight;
+      if (remaining > 0) pdf.addPage();
+      y += pageHeight;
+    }
+
+    pdf.save("conclusion-mineria.pdf");
+  };
 
   return (
     <section className="mt-10">
@@ -61,32 +50,24 @@ export default function MiningConclusion() {
         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
           Conclusión para Cliente en la Industria Minera
         </h2>
-
-        {/* Botón sin lucide-react (SVG inline) */}
         <button
-          onClick={handleExport}
+          onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
+          title="Exportar la sección como PDF"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" x2="12" y1="15" y2="3" />
+          {/* Ícono simple inline (evita dependencias externas) */}
+          <svg xmlns="http://.w3.org/2000/svg" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" strokeWidth="2"
+               className="w-4 h-4">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6"/>
+            <path d="M12 18v-6"/>
+            <path d="M9 15l3 3 3-3"/>
           </svg>
-          Exportar
+          Exportar PDF
         </button>
       </div>
 
-      {/* Contenido exportable */}
       <div
         ref={ref}
         className="bg-white rounded-2xl shadow p-6 md:p-8 leading-relaxed prose prose-slate max-w-none"
@@ -96,19 +77,36 @@ export default function MiningConclusion() {
           para un centro de control minero debido a:
         </p>
         <ul className="list-disc pl-5 space-y-2">
-          <li>Plataforma unificada (SCADA, DMS, GIS, Historian, etc.) que reduce complejidad e integración.</li>
-          <li>Funcionalidades clave nativas (GIS, estimador de estado) sin dependencias externas costosas.</li>
-          <li>Compatibilidad garantizada entre versiones, bajando riesgos y costos de migración.</li>
-          <li>Acceso remoto / web nativo para operación distribuida.</li>
-          <li>Agnóstico de hardware/antivirus, con flexibilidad de infraestructura.</li>
-          <li>Soporte local en Chile con integradores certificados.</li>
+          <li>
+            Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos
+            de integración.
+          </li>
+          <li>
+            Funcionalidades clave nativas, como GIS y estimador de estado, que en otras soluciones requieren módulos
+            adicionales o integraciones externas.
+          </li>
+          <li>
+            Compatibilidad garantizada entre versiones, asegurando la continuidad operativa y reduciendo los costos de
+            migración.
+          </li>
+          <li>
+            Acceso remoto y web nativo, facilitando la supervisión y el control desde diferentes ubicaciones.
+          </li>
+          <li>
+            Agnosticismo de hardware y antivirus, ofreciendo flexibilidad en la elección de infraestructura y
+            soluciones de seguridad.
+          </li>
+          <li>
+            Soporte local en Chile a través de integradores certificados, asegurando una implementación y
+            mantenimiento eficientes.
+          </li>
         </ul>
 
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900">
           <div className="font-medium mb-1">Nota de versiones ABB ZEE600 / SEE00</div>
-          <p className="muted">
-            ZEE600 (SEE00) suele ir una versión por detrás de zenon; p. ej., si zenon está en v15, ABB suele estar en v14.
-            Recomendación: validar roadmap de versiones con proveedor.
+          <p>
+            ZEE600 (SEE00) de ABB suele operar una versión por detrás de zenon; por ejemplo, si zenon está en v15,
+            ABB suele estar en v14. Recomendación: validar el roadmap de versiones con el proveedor.
           </p>
         </div>
       </div>
