@@ -1,205 +1,185 @@
-
 // src/lib/localRag.js
-// Cliente-side RAG muy liviano (PDF, TXT/MD, CSV/JSON, XLS/XLSX)
-// Exporta: loadDocs(files), answerQuery(question, options), clearIndex()
+import MiniSearch from "minisearch";
 
-import MiniSearch from 'minisearch'
+let mini = null;
+let docStore = [];
 
-let mini = null
-let loadedFiles = 0
-let totalChunks = 0
+// Utilidad: leer archivo como ArrayBuffer
+const readAsArrayBuffer = (file) =>
+  new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsArrayBuffer(file);
+  });
 
-function newIndex () {
+// Utilidad: leer archivo como texto
+const readAsText = (file) =>
+  new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsText(file);
+  });
+
+async function parsePDF(file) {
+  const data = await readAsArrayBuffer(file);
+  // import dinámico para evitar bundling duro
+  const pdfjs = await import("pdfjs-dist/build/pdf.js");
+  // worker (no estrictamente necesario si no cargas worker dedicado)
+  // Si te da warning, ignóralo: solo extraemos texto
+  const loadingTask = pdfjs.getDocument({ data });
+  const pdf = await loadingTask.promise;
+
+  let fullText = "";
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const strings = content.items.map((it) => it.str).join(" ");
+    fullText += strings + "\n";
+  }
+  return fullText;
+}
+
+async function parseXLS(file) {
+  const ab = await readAsArrayBuffer(file);
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(ab, { type: "array" });
+  let out = "";
+  wb.SheetNames.forEach((s) => {
+    const json = XLSX.utils.sheet_to_json(wb.Sheets[s], { header: 1 });
+    json.forEach((row) => (out += row.join(" ") + "\n"));
+    out += "\n";
+  });
+  return out;
+}
+
+async function parseCSV(file) {
+  const text = await readAsText(file);
+  const Papa = await import("papaparse");
+  const parsed = Papa.default.parse(text, { skipEmptyLines: true });
+  return parsed.data.map((r) => r.join(" ")).join("\n");
+}
+
+async function parseJSON(file) {
+  const text = await readAsText(file);
+  try {
+    const obj = JSON.parse(text);
+    return typeof obj === "string" ? obj : JSON.stringify(obj);
+  } catch {
+    return text;
+  }
+}
+
+async function parseTXT(file) {
+  return readAsText(file);
+}
+
+async function fileToText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return parsePDF(file);
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return parseXLS(file);
+  if (name.endsWith(".csv")) return parseCSV(file);
+  if (name.endsWith(".json")) return parseJSON(file);
+  // txt / md por defecto
+  return parseTXT(file);
+}
+
+/**
+ * Carga archivos, extrae texto y construye el índice.
+ * @param {File[]} files
+ * @returns {Promise<{count:number, fragments:number}>}
+ */
+export async function loadDocs(files) {
+  const docs = [];
+  let idCounter = 1;
+
+  for (const f of files) {
+    try {
+      const text = await fileToText(f);
+      // fragmentar en trozos ~1000 caracteres para mejor recall
+      const chunkSize = 1000;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        const chunk = text.slice(i, i + chunkSize);
+        docs.push({
+          id: `${idCounter++}`,
+          source: f.name,
+          text: chunk
+        });
+      }
+    } catch (e) {
+      console.warn("No pude parsear", f.name, e);
+    }
+  }
+
+  // guarda en memoria
+  docStore = docs;
+
+  // construye índice
   mini = new MiniSearch({
-    fields: ['text', 'title'],
-    storeFields: ['title', 'source', 'chunk', 'id'],
+    fields: ["text", "source"],
+    storeFields: ["text", "source"],
     searchOptions: {
-      boost: { title: 2 },
-      fuzzy: 0.2,
+      boost: { text: 2 },
+      fuzzy: 0.1,
       prefix: true
     }
-  })
-  loadedFiles = 0
-  totalChunks = 0
-}
+  });
+  mini.addAll(docs);
 
-function ensureIndex () {
-  if (!mini) newIndex()
-}
-
-function extOf (file) {
-  const n = file.name || ''
-  const i = n.lastIndexOf('.')
-  return i >= 0 ? n.slice(i + 1).toLowerCase() : ''
-}
-
-function chunkText (text, size = 900, overlap = 150) {
-  const chunks = []
-  let start = 0
-  while (start < text.length) {
-    const end = Math.min(start + size, text.length)
-    const slice = text.slice(start, end).trim()
-    if (slice) chunks.push(slice)
-    start = end - overlap
-    if (start < 0) start = 0
-  }
-  return chunks
-}
-
-async function textFromPDF (file) {
-  // Carga pdfjs de forma dinámica para evitar problemas de bundling
-  const pdfjs = await import('pdfjs-dist/build/pdf')
-  const worker = await import('pdfjs-dist/build/pdf.worker.min.js?url')
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-
-  const buf = await file.arrayBuffer()
-  const doc = await pdfjs.getDocument({ data: buf }).promise
-  let all = []
-  for (let p = 1; p <= doc.numPages; p++) {
-    const page = await doc.getPage(p)
-    const content = await page.getTextContent()
-    const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ')
-    // conservamos por página para mejores citas
-    const chunks = chunkText(text)
-    chunks.forEach((ch, idx) => {
-      all.push({ text: ch, hint: `p.${p}` })
-    })
-  }
-  return all
-}
-
-async function textFromTxt (file) {
-  const t = await file.text()
-  return chunkText(t).map(ch => ({ text: ch }))
-}
-
-async function textFromCSV (file) {
-  const Papa = (await import('papaparse')).default
-  const text = await file.text()
-  const parsed = Papa.parse(text, { header: true })
-  const rows = parsed.data || []
-  const str = rows.map(r => Object.values(r).join(' | ')).join('\n')
-  return chunkText(str).map(ch => ({ text: ch }))
-}
-
-async function textFromJSON (file) {
-  const t = await file.text()
-  let data
-  try { data = JSON.parse(t) } catch (e) { data = t }
-  const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-  return chunkText(str).map(ch => ({ text: ch }))
-}
-
-async function textFromXLS (file) {
-  const XLSX = await import('xlsx')
-  const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf)
-  let out = ''
-  for (const name of wb.SheetNames) {
-    const sheet = wb.Sheets[name]
-    const csv = XLSX.utils.sheet_to_csv(sheet)
-    out += `\n# ${name}\n${csv}`
-  }
-  return chunkText(out).map(ch => ({ text: ch }))
-}
-
-async function parseFile (file) {
-  const type = (file.type || '').toLowerCase()
-  const ext = extOf(file)
-  if (type.includes('pdf') || ext === 'pdf') return textFromPDF(file)
-  if (type.includes('csv') || ext === 'csv') return textFromCSV(file)
-  if (type.includes('json') || ext === 'json') return textFromJSON(file)
-  if (ext === 'xls' || ext === 'xlsx') return textFromXLS(file)
-  // txt / md / others -> text
-  return textFromTxt(file)
-}
-
-/**
- * Carga e indexa documentos (FileList o Array<File>)
- * Devuelve { files, fragments }
- */
-export async function loadDocs (files) {
-  ensureIndex()
-  const list = Array.from(files || [])
-  let docs = []
-  for (const f of list) {
-    const parts = await parseFile(f)
-    parts.forEach((p, i) => {
-      const doc = {
-        id: `${loadedFiles + 1}-${i + 1}`,
-        title: f.name,
-        source: `${f.name}${p.hint ? ` ${p.hint}` : ''}`,
-        chunk: i + 1,
-        text: p.text
-      }
-      docs.push(doc)
-    })
-    loadedFiles += 1
-  }
-  totalChunks += docs.length
-  await mini.addAllAsync(docs)
-  // persistencia ligera
+  // guarda un eco mínimo en localStorage (opcional)
   try {
-    localStorage.setItem('rag:index:stats', JSON.stringify({ files: loadedFiles, fragments: totalChunks }))
+    localStorage.setItem(
+      "localrag_meta",
+      JSON.stringify({ count: docs.length, at: Date.now() })
+    );
   } catch {}
-  return { files: loadedFiles, fragments: totalChunks }
-}
 
-export function clearIndex () {
-  newIndex()
-  try { localStorage.removeItem('rag:index:stats') } catch {}
-}
-
-function uniqueBy (arr, key) {
-  const seen = new Set()
-  const out = []
-  for (const it of arr) {
-    const k = it[key]
-    if (!seen.has(k)) {
-      seen.add(k); out.push(it)
-    }
-  }
-  return out
+  return { count: new Set(docs.map(d => d.source)).size, fragments: docs.length };
 }
 
 /**
- * Busca en el índice y arma una respuesta corta + referencias
- * @returns { text: string, refs: Array<{source:string, title:string}> }
+ * Limpia índice y documentos.
  */
-export async function answerQuery (question, options = {}) {
-  ensureIndex()
-  const topK = options.topK ?? 5
-  const res = mini.search(question, { combineWith: 'AND' }) || []
-  if (!res.length) {
+export function clearIndex() {
+  mini = null;
+  docStore = [];
+  try { localStorage.removeItem("localrag_meta"); } catch {}
+}
+
+/**
+ * Busca y arma una respuesta citando los fragmentos más relevantes.
+ * @param {string} question
+ */
+export async function answerQuery(question) {
+  if (!mini || docStore.length === 0) {
     return {
-      text: 'No encontré coincidencias en los documentos cargados. Puedes subir más archivos o reformular la consulta.',
-      refs: []
-    }
+      answer: "Primero sube documentos con el botón 'Cargar documentos'.",
+      sources: []
+    };
   }
-  const top = res.slice(0, topK)
+
+  const results = mini.search(question, { limit: 5 });
+  if (results.length === 0) {
+    return { answer: "No encontré algo directo en los documentos.", sources: [] };
+  }
+
+  // arma una respuesta simple concatenando los fragmentos top
+  const top = results.slice(0, 3);
   const bullets = top.map(r => {
-    const t = (r.text || '').trim().replace(/\s+/g, ' ')
-    const snippet = t.length > 220 ? t.slice(0, 220) + '…' : t
-    return `• ${snippet}  —  (${r.source})`
-  })
-  const refs = uniqueBy(top.map(r => ({ source: r.source, title: r.title })), 'source')
-  const text = `Basado en los documentos cargados, esto es lo más relevante:\n\n${bullets.join('\n')}\n\n` +
-               `Sugerencia: si quieres más precisión, sube normativa NTSyCS/SITR/IEC 62443 o planillas de evaluación.`
-  return { text, refs }
-}
+    const d = docStore.find(x => x.id === r.id);
+    const snippet = (d?.text || "").slice(0, 300).replace(/\s+/g, " ");
+    return `• ${d?.source || "doc"}: ${snippet}…`;
+  }).join("\n");
 
-// Estado ligero para la UI (opcional)
-export function getIndexStats () {
-  try {
-    const raw = localStorage.getItem('rag:index:stats')
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return { files: loadedFiles, fragments: totalChunks }
-}
+  const answer =
+    `Esto es lo más relevante que encontré:\n\n${bullets}\n\n` +
+    `Sugerencia: si necesitas una respuesta normativa, indica el artículo/tema (p.ej. "NTSyCS sección xxxx").`;
 
-export default {
-  loadDocs,
-  answerQuery,
-  clearIndex,
-  getIndexStats
+  const sources = top.map(r => {
+    const d = docStore.find(x => x.id === r.id);
+    return { source: d?.source || "doc", id: r.id };
+  });
+
+  return { answer, sources };
 }
