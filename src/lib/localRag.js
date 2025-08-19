@@ -1,168 +1,142 @@
 // src/lib/localRag.js
-// Carga/parseo de documentos y RAG simple (BM25-like muy básico)
+// Carga y parsing local de documentos + almacenamiento en localStorage
 
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
-// Utilities
-const textFromArrayBuffer = (ab) => new TextDecoder("utf-8").decode(new Uint8Array(ab));
-const normalize = (s) =>
-  (s || "")
-    .replace(/\s+/g, " ")
-    .replace(/[^\p{L}\p{N}\s\-_.:,;()]/gu, "")
-    .trim()
-    .toLowerCase();
+// Fijar el worker por CDN para evitar bundlearlo (Netlify/Vite friendly)
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
+// ------ Utils de lectura ------
+const readAsText = (file) =>
+  new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onerror = rej;
+    r.onload = () => res(String(r.result || ""));
+    r.readAsText(file);
+  });
+
+const readAsArrayBuffer = (file) =>
+  new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onerror = rej;
+    r.onload = () => res(r.result);
+    r.readAsArrayBuffer(file);
+  });
+
+// ------ Parsers por tipo ------
+async function parsePDF(file) {
+  const data = await readAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  let out = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map((t) => t.str).join(" ").replace(/\s+/g, " ");
+    out.push(text);
+  }
+  return out.join("\n\n");
+}
+
+async function parseTXT(file) {
+  return readAsText(file);
+}
+
+async function parseCSV(file) {
+  const text = await readAsText(file);
+  const parsed = Papa.parse(text, { skipEmptyLines: true });
+  // Lo convertimos a texto simple (una fila por línea)
+  const rows = (parsed.data || []).map((row) => row.join(" | "));
+  return rows.join("\n");
+}
+
+async function parseXLSX(file) {
+  const buf = await readAsArrayBuffer(file);
+  const wb = XLSX.read(buf, { type: "array" });
+  const texts = [];
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(ws, { strip: true });
+    texts.push(`--- Hoja: ${sheetName} ---\n${csv}`);
+  }
+  return texts.join("\n\n");
+}
+
+// ------ API pública ------
 export async function parseFilesToDocs(files = []) {
   const docs = [];
-  for (const file of files) {
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
+  for (const f of files) {
+    const name = f.name || "documento";
+    const ext = name.toLowerCase().split(".").pop();
+
     try {
-      if (ext === "pdf") {
-        const ab = await file.arrayBuffer();
-        const text = await extractPdfText(ab);
-        docs.push({ id: crypto.randomUUID(), name: file.name, type: "pdf", text });
-      } else if (ext === "xlsx" || ext === "xls") {
-        const ab = await file.arrayBuffer();
-        const text = await extractExcelText(ab);
-        docs.push({ id: crypto.randomUUID(), name: file.name, type: "excel", text });
-      } else if (ext === "csv") {
-        const txt = await file.text();
-        const parsed = Papa.parse(txt, { header: true });
-        const text = JSON.stringify(parsed.data);
-        docs.push({ id: crypto.randomUUID(), name: file.name, type: "csv", text });
-      } else if (ext === "json") {
-        const txt = await file.text();
-        // minimiza para ahorrar espacio
-        const text = JSON.stringify(JSON.parse(txt));
-        docs.push({ id: crypto.randomUUID(), name: file.name, type: "json", text });
-      } else {
-        // txt / md / otros legibles como texto
-        const txt = await file.text();
-        docs.push({ id: crypto.randomUUID(), name: file.name, type: "text", text: txt });
+      let text = "";
+      if (ext === "pdf") text = await parsePDF(f);
+      else if (ext === "txt" || ext === "md") text = await parseTXT(f);
+      else if (ext === "csv" || ext === "json") text = await parseCSV(f);
+      else if (ext === "xls" || ext === "xlsx") text = await parseXLSX(f);
+      else {
+        // fallback: intentar como texto
+        text = await parseTXT(f);
+      }
+
+      // Filtramos vacíos
+      if (text && text.trim()) {
+        docs.push({
+          id: crypto.randomUUID(),
+          name,
+          size: f.size || 0,
+          type: ext,
+          text,
+          addedAt: Date.now(),
+        });
       }
     } catch (e) {
-      console.warn("No pude leer", file.name, e);
+      console.warn(`No se pudo parsear ${name}:`, e);
     }
   }
   return docs;
 }
 
-// --- PDF (pdfjs-dist via import dinámico + worker CDN) ---
-async function extractPdfText(arrayBuffer) {
-  // Import ESM legacy compatible con Vite/Rollup/Netlify
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // Usa worker por CDN (evita que el bundler lo resuelva)
-  pdfjs.GlobalWorkerOptions.workerSrc =
-    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.js";
-
-  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-  const pdf = await loadingTask.promise;
-
-  let all = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const str = content.items.map((it) => ("str" in it ? it.str : "")).join(" ");
-    all.push(str);
-  }
-  return all.join("\n");
-}
-
-// --- Excel ---
-async function extractExcelText(arrayBuffer) {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.read(arrayBuffer, { type: "array" });
-  const out = [];
-  for (const name of wb.SheetNames) {
-    const ws = wb.Sheets[name];
-    // lo convertimos a CSV y lo apilamos
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ",", RS: "\n" });
-    out.push(`## Hoja: ${name}\n${csv}`);
-  }
-  return out.join("\n\n");
-}
-
-// Persistencia local
-const LS_KEY = "local_docs_v1";
-
-export function saveDocs(docs) {
-  const slim = docs.map((d) => ({ ...d, text: d.text })); // guardamos todo el texto
-  localStorage.setItem(LS_KEY, JSON.stringify(slim));
-}
+const LS_KEY = "local_rag_docs_v1";
 
 export function loadDocs() {
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return [];
   try {
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
+}
+
+export function saveDocs(newDocs = []) {
+  const prev = loadDocs();
+  const merged = [...prev, ...newDocs];
+  localStorage.setItem(LS_KEY, JSON.stringify(merged));
+  return merged;
 }
 
 export function clearDocs() {
   localStorage.removeItem(LS_KEY);
 }
 
-// --- RAG simple: búsqueda por similitud de coseno + TF ---
-export function answerQuery(query, docs, { maxSnippets = 3 } = {}) {
-  const q = normalize(query);
-  if (!q || !docs?.length) return { answer: "", sources: [] };
+export function searchLocal(query, limit = 5) {
+  // Búsqueda simple por scoring de palabras (naive)
+  const q = (query || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const corpus = loadDocs();
 
-  const qTokens = tokenSet(q);
-  const scored = [];
-  for (const d of docs) {
-    const body = normalize(d.text);
-    const score = cosineScore(qTokens, tokenSet(body));
-    if (score > 0) scored.push({ doc: d, score });
-  }
-  scored.sort((a, b) => b.score - a.score);
+  const scored = corpus
+    .map((d) => {
+      const text = (d.text || "").toLowerCase();
+      const score = q.reduce((acc, w) => acc + (text.includes(w) ? 1 : 0), 0);
+      return { ...d, score };
+    })
+    .filter((d) => d.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 
-  const picked = scored.slice(0, Math.min(maxSnippets, scored.length));
-  const answer =
-    picked.length === 0
-      ? "No encontré coincidencias en los documentos cargados."
-      : picked
-          .map(
-            (s, i) =>
-              `(${i + 1}) [${s.doc.name}] ${makeSnippet(s.doc.text, qTokens, 420)}`
-          )
-          .join("\n\n");
-
-  return { answer, sources: picked.map((p) => p.doc.name) };
-}
-
-// Helpers de similitud
-function tokenSet(text) {
-  return (text || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .reduce((m, t) => (m.set(t, (m.get(t) || 0) + 1), m), new Map());
-}
-
-function cosineScore(aMap, bMap) {
-  let dot = 0,
-    aLen = 0,
-    bLen = 0;
-  for (const [, v] of aMap) aLen += v * v;
-  for (const [, v] of bMap) bLen += v * v;
-  for (const [t, v] of aMap) {
-    const w = bMap.get(t) || 0;
-    dot += v * w;
-  }
-  const denom = Math.sqrt(aLen) * Math.sqrt(bLen) || 1;
-  return dot / denom;
-}
-
-function makeSnippet(text, qTokens, maxLen = 420) {
-  const low = text.toLowerCase();
-  let idx = -1;
-  for (const [tok] of qTokens) {
-    const j = low.indexOf(tok.toLowerCase());
-    if (j >= 0 && (idx < 0 || j < idx)) idx = j;
-  }
-  if (idx < 0) idx = 0;
-  const start = Math.max(0, idx - Math.floor(maxLen / 3));
-  const snip = text.slice(start, start + maxLen).replace(/\s+/g, " ").trim();
-  return (start > 0 ? "…" : "") + snip + (start + maxLen < text.length ? "…" : "");
+  return scored;
 }
