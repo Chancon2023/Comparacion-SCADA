@@ -1,3 +1,12 @@
+# Netlify build config — fixes missing package-lock.json by using `npm install`
+# and keeps functions + dist publish directory.
+
 [build]
-  command = "npm ci && npm run build"
+  command = "npm install --no-audit --no-fund && npm run build"
   publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # If you hit peer-deps conflicts you can uncomment the next line:
+  # NPM_FLAGS = "--legacy-peer-deps"
