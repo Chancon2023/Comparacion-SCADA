@@ -1,61 +1,59 @@
-// src/components/UploadPanel.jsx
-import React, { useRef, useState, useEffect } from "react";
-import { parseFilesToDocs, saveDocs, loadDocs, clearDocs } from "../lib/localRag";
+import React, { useRef, useState } from "react";
+import { loadDocs, clearIndex } from "../lib/localRag";
 
-export default function UploadPanel() {
-  const inp = useRef(null);
-  const [count, setCount] = useState(0);
+export default function UploadPanel({ onIndexed }) {
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [meta, setMeta] = useState(null);
 
-  useEffect(() => {
-    setCount(loadDocs().length);
-  }, []);
-
-  const onAdd = async () => {
-    const files = Array.from(inp.current?.files || []);
+  const handleLoad = async () => {
+    const files = Array.from(inputRef.current?.files || []);
     if (!files.length) return;
-    const docs = await parseFilesToDocs(files);
-    const merged = saveDocs(docs);
-    setCount(merged.length);
-    // limpia selección
-    if (inp.current) inp.current.value = "";
+    setBusy(true);
+    try {
+      const res = await loadDocs(files);
+      setMeta(res);
+      onIndexed?.(res);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const onClear = () => {
-    clearDocs();
-    setCount(0);
+  const handleClear = () => {
+    clearIndex();
+    setMeta(null);
+    onIndexed?.({ count: 0, fragments: 0 });
   };
 
   return (
-    <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-      <div className="text-sm text-slate-600 mb-2">
-        Sube <b>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</b>. El análisis es local
-        (en tu navegador) y se guarda en <code>localStorage</code>.
+    <div className="bg-white rounded-xl border p-4 flex flex-col gap-3">
+      <div className="text-sm text-slate-600">
+        Sube <strong>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</strong>.
+        El análisis es local (en tu navegador).
       </div>
-
-      <div className="flex flex-col md:flex-row gap-2 items-start md:items-center">
-        <input
-          ref={inp}
-          type="file"
-          multiple
-          accept=".pdf,.txt,.md,.csv,.json,.xls,.xlsx"
-          className="block w-full md:w-auto"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={() => {}} />
         <button
-          onClick={onAdd}
-          className="px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+          className="px-3 py-2 rounded-lg bg-slate-900 text-white"
+          onClick={() => inputRef.current?.click()}
         >
-          Cargar documentos
+          Elegir archivos
         </button>
         <button
-          onClick={onClear}
-          className="px-3 py-2 rounded-lg border border-slate-300 hover:bg-white"
+          className="px-3 py-2 rounded-lg border"
+          onClick={handleLoad}
+          disabled={busy}
         >
-          Vaciar índice
+          {busy ? "Cargando…" : "Cargar documentos"}
         </button>
-
-        <span className="text-sm text-slate-600 md:ml-2">
-          {count ? `Indexados: ${count}` : "Aún no has cargado documentos."}
-        </span>
+        <button className="px-3 py-2 rounded-lg border" onClick={handleClear}>
+          Borrar índice
+        </button>
+        {meta && (
+          <span className="text-xs text-slate-500 ml-2">
+            Indexados {meta.fragments} fragmentos de {meta.count} archivo(s)
+          </span>
+        )}
       </div>
     </div>
   );
