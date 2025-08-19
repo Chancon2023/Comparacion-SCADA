@@ -1,0 +1,20 @@
+[
+  {
+    "id": "doc_ntsycs",
+    "title": "NTSyCS – Exigencias generales",
+    "source": "NTSyCS",
+    "text": "La NTSyCS define requisitos sobre continuidad, ciberseguridad y operación para sistemas eléctricos. Para centros de control y SCADA, demanda alta disponibilidad, respaldo de registros, y medidas alineadas con IEC 62443."
+  },
+  {
+    "id": "doc_sitr",
+    "title": "SITR – Procedimientos y reportabilidad",
+    "source": "SITR",
+    "text": "El SITR exige entrega de telemetría confiable y registros de eventos a CEN. Los SCADA deben interoperar con protocolos estándar y asegurar integridad y disponibilidad de datos."
+  },
+  {
+    "id": "doc_62443",
+    "title": "IEC 62443 – Ciberseguridad",
+    "source": "IEC 62443",
+    "text": "IEC 62443 establece niveles de seguridad, segmentación por zonas y conduits, gestión de identidades y hardening. Las plataformas SCADA deben soportar autenticación centralizada y trazabilidad."
+  }
+]

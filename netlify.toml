@@ -1,18 +1,8 @@
-# Netlify config para Assistant Gemini
-[functions]
-  node_bundler = "esbuild"
-
-[[redirects]]
-  from = "/api/assistant"
-  to   = "/.netlify/functions/assistant-gemini"
-  status = 200
-
-# netlify.toml
 [build]
   command = "npm run build"
   publish = "dist"
 
-[functions]
-  node_bundler = "esbuild"
-  included_files = []
-  external_node_modules = []
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
