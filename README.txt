@@ -1,26 +1,28 @@
+# Local Assistant Patch (sin APIs)
+Archivos listos para **reemplazar / agregar** en tu proyecto Vite + React.
 
-# Patch Asistente (Gemini + Netlify Function)
+## Archivos incluidos
+- `src/lib/localRag.js`  → Motor de indexación y búsqueda local (FlexSearch + pdfjs + xlsx)
+- `src/pages/Assistant.jsx` → Nueva pantalla del asistente con **uploader** y chat local
 
-1) **Variables en Netlify**
-   - Agrega `GEMINI_API_KEY` (sin prefijo `VITE_`). Guarda y vuelve a desplegar.
+## Instalación
+1. Instala dependencias:
+   ```bash
+   npm i flexsearch pdfjs-dist xlsx
+   ```
+2. Copia los archivos en sus rutas (`src/lib/` y `src/pages/`).
+3. Asegura la ruta en `App.jsx`:
+   ```jsx
+   import Assistant from "./pages/Assistant";
+   // ...
+   <Route path="/assistant" element={<Assistant />} />
+   ```
+4. En el `Navbar`, enlaza a `/assistant`.
 
-2) **Archivos de este patch (copiar/reemplazar)**
-   - `netlify/functions/assistant-gemini.js`
-   - `netlify.toml`
-   - `src/lib/ai.js`
-   - `src/pages/Assistant.jsx`
-   - `src/components/AssistantChat.jsx`
+## Uso
+- Abre la pestaña **Asistente**.
+- Sube tus documentos **PDF, XLSX/XLS, TXT, MD, CSV, JSON**.
+- Pregunta en el chat: el motor devuelve fragmentos relevantes con **citas**.
+- El índice se guarda en `localStorage` (sobrevive a recargas).
 
-3) **Dependencia para la Function**
-   - Añade `"node-fetch": "^3.3.2"` a `dependencies` en tu `package.json` y sube el cambio.
-   - No importes `@google/generative-ai` en el cliente.
-
-4) **Rutas**
-   - Tu navegación debe incluir `/assistant`.
-   - El cliente llama a `/api/assistant` (redirige hacia la Function).
-
-5) **Build en Netlify**
-   - Si usas un `netlify.toml` propio, fusiona la sección `[functions]` y el `[[redirects]]`.
-   - Tras deploy, abre `/assistant` y prueba.
-
-Listo.
+> Todo corre en tu navegador. **No** usa Netlify Functions ni APIs.
