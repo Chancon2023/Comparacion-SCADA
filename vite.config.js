@@ -1,9 +1,25 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// Vite config. If your project already has a vite.config.{js,ts}, keep your file
-// and just ensure @vitejs/plugin-react is present. This minimal config fixes
-// "vite not found" and rolls with the default settings.
+// Ajustes para que Vite pre-optimice libs que estaban fallando en Netlify
 export default defineConfig({
-  plugins: [react()]
-})
+  plugins: [react()],
+  optimizeDeps: {
+    include: [
+      "react-router-dom",
+      "recharts",
+      "framer-motion",
+      "papaparse",
+      "pdfjs-dist",
+      "jspdf",
+      "html2canvas"
+    ]
+  },
+  build: {
+    // Por si tu proyecto tiene dependencias CJS antiguas
+    commonjsOptions: {
+      include: [/node_modules/]
+    },
+    sourcemap: false
+  }
+});
