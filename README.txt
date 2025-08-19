@@ -1,13 +1,18 @@
-# Fix papaparse/pdfjs for Netlify (ready-to-push)
 
-**Qué hace:** instala `papaparse`, `pdfjs-dist` y `xlsx` automáticamente en Netlify
-y marca esas libs como `external` en Vite para que no rompan el bundle.
+Local RAG fix patch
+===================
 
-## Cómo usar
-1. Coloca **estos archivos en la raíz** del repo (crea carpetas si faltan):
-   - `package.json`
-   - `netlify.toml`
-   - `vite.config.js`
-   - `src/lib/localRag.js`
-2. Commit + push a GitHub.
-3. Netlify reconstruirá con `npm run prebuild && npm run build`.
+Incluye `src/lib/localRag.js` con las funciones **loadDocs**, **answerQuery** y **clearIndex**,
+soportando PDF / TXT / MD / CSV / JSON / XLS/XLSX con **imports dinámicos** para evitar
+errores de bundling en Netlify/Vite.
+
+### Dependencias a agregar en package.json
+```
+npm i minisearch pdfjs-dist papaparse xlsx
+```
+
+> Si ya tenías un `Assistant.jsx` que hace:
+> ```js
+> import { loadDocs, answerQuery, clearIndex } from "../lib/localRag";
+> ```
+> no necesitas tocarlo. Solo reemplaza `src/lib/localRag.js` por el de este patch.

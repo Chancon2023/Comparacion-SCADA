@@ -1,166 +1,205 @@
+
 // src/lib/localRag.js
-// Índice local con BM25 + serialización segura para localStorage
+// Cliente-side RAG muy liviano (PDF, TXT/MD, CSV/JSON, XLS/XLSX)
+// Exporta: loadDocs(files), answerQuery(question, options), clearIndex()
 
-const STORAGE_KEY = "rag_index_v1";
+import MiniSearch from 'minisearch'
 
-// ---------------- Utils ----------------
-const tokenize = (text) =>
-  (text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9áéíóúñü\s]/gi, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+let mini = null
+let loadedFiles = 0
+let totalChunks = 0
 
-const uniq = (arr) => Array.from(new Set(arr));
-
-const safeGet = (maybeMap, key) => {
-  if (!maybeMap) return 0;
-  if (typeof maybeMap.get === "function") return maybeMap.get(key) ?? 0;
-  // objeto plano o array de pares
-  if (Array.isArray(maybeMap)) {
-    // [[k,v],[k2,v2]...]
-    const found = maybeMap.find((p) => p[0] === key);
-    return found ? found[1] : 0;
-  }
-  return maybeMap[key] ?? 0;
-};
-
-const safeSet = (maybeMap, key, val) => {
-  if (!maybeMap) return;
-  if (typeof maybeMap.set === "function") {
-    maybeMap.set(key, val);
-  } else if (Array.isArray(maybeMap)) {
-    const idx = maybeMap.findIndex((p) => p[0] === key);
-    if (idx >= 0) maybeMap[idx][1] = val;
-    else maybeMap.push([key, val]);
-  } else {
-    maybeMap[key] = val;
-  }
-};
-
-const mapToEntries = (m) => (m instanceof Map ? Array.from(m.entries()) : m);
-const entriesToMap = (e) =>
-  e instanceof Map ? e : new Map(Array.isArray(e) ? e : Object.entries(e || {}));
-
-// ---------------- Index building ----------------
-function buildIndex(rawDocs) {
-  // rawDocs: [{id, title, text, meta?}]
-  const docs = [];
-  const df = new Map(); // document frequency por término
-  let totalLen = 0;
-
-  rawDocs.forEach((rd, i) => {
-    const text = `${rd.title || ""}\n${rd.text || ""}`;
-    const tokens = tokenize(text);
-    const tf = new Map(); // term freq por doc
-    tokens.forEach((t) => safeSet(tf, t, safeGet(tf, t) + 1));
-
-    // actualizar DF con términos únicos
-    uniq(tokens).forEach((t) => safeSet(df, t, safeGet(df, t) + 1));
-
-    const doc = {
-      id: rd.id ?? String(i),
-      title: rd.title || "",
-      text: rd.text || "",
-      meta: rd.meta || {},
-      len: tokens.length,
-      tf,
-    };
-    docs.push(doc);
-    totalLen += doc.len;
-  });
-
-  const avgLen = docs.length ? totalLen / docs.length : 0;
-
-  return { docs, df, N: docs.length, avgLen };
+function newIndex () {
+  mini = new MiniSearch({
+    fields: ['text', 'title'],
+    storeFields: ['title', 'source', 'chunk', 'id'],
+    searchOptions: {
+      boost: { title: 2 },
+      fuzzy: 0.2,
+      prefix: true
+    }
+  })
+  loadedFiles = 0
+  totalChunks = 0
 }
 
-// ---------------- Persistencia ----------------
-export function saveIndex(index) {
-  // Convertir Maps a arrays de entradas
-  const serializable = {
-    N: index.N,
-    avgLen: index.avgLen,
-    df: mapToEntries(index.df),
-    docs: index.docs.map((d) => ({
-      ...d,
-      tf: mapToEntries(d.tf),
-    })),
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+function ensureIndex () {
+  if (!mini) newIndex()
 }
 
-export function loadIndex() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
+function extOf (file) {
+  const n = file.name || ''
+  const i = n.lastIndexOf('.')
+  return i >= 0 ? n.slice(i + 1).toLowerCase() : ''
+}
+
+function chunkText (text, size = 900, overlap = 150) {
+  const chunks = []
+  let start = 0
+  while (start < text.length) {
+    const end = Math.min(start + size, text.length)
+    const slice = text.slice(start, end).trim()
+    if (slice) chunks.push(slice)
+    start = end - overlap
+    if (start < 0) start = 0
+  }
+  return chunks
+}
+
+async function textFromPDF (file) {
+  // Carga pdfjs de forma dinámica para evitar problemas de bundling
+  const pdfjs = await import('pdfjs-dist/build/pdf')
+  const worker = await import('pdfjs-dist/build/pdf.worker.min.js?url')
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+
+  const buf = await file.arrayBuffer()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+  let all = []
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p)
+    const content = await page.getTextContent()
+    const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ')
+    // conservamos por página para mejores citas
+    const chunks = chunkText(text)
+    chunks.forEach((ch, idx) => {
+      all.push({ text: ch, hint: `p.${p}` })
+    })
+  }
+  return all
+}
+
+async function textFromTxt (file) {
+  const t = await file.text()
+  return chunkText(t).map(ch => ({ text: ch }))
+}
+
+async function textFromCSV (file) {
+  const Papa = (await import('papaparse')).default
+  const text = await file.text()
+  const parsed = Papa.parse(text, { header: true })
+  const rows = parsed.data || []
+  const str = rows.map(r => Object.values(r).join(' | ')).join('\n')
+  return chunkText(str).map(ch => ({ text: ch }))
+}
+
+async function textFromJSON (file) {
+  const t = await file.text()
+  let data
+  try { data = JSON.parse(t) } catch (e) { data = t }
+  const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+  return chunkText(str).map(ch => ({ text: ch }))
+}
+
+async function textFromXLS (file) {
+  const XLSX = await import('xlsx')
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf)
+  let out = ''
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name]
+    const csv = XLSX.utils.sheet_to_csv(sheet)
+    out += `\n# ${name}\n${csv}`
+  }
+  return chunkText(out).map(ch => ({ text: ch }))
+}
+
+async function parseFile (file) {
+  const type = (file.type || '').toLowerCase()
+  const ext = extOf(file)
+  if (type.includes('pdf') || ext === 'pdf') return textFromPDF(file)
+  if (type.includes('csv') || ext === 'csv') return textFromCSV(file)
+  if (type.includes('json') || ext === 'json') return textFromJSON(file)
+  if (ext === 'xls' || ext === 'xlsx') return textFromXLS(file)
+  // txt / md / others -> text
+  return textFromTxt(file)
+}
+
+/**
+ * Carga e indexa documentos (FileList o Array<File>)
+ * Devuelve { files, fragments }
+ */
+export async function loadDocs (files) {
+  ensureIndex()
+  const list = Array.from(files || [])
+  let docs = []
+  for (const f of list) {
+    const parts = await parseFile(f)
+    parts.forEach((p, i) => {
+      const doc = {
+        id: `${loadedFiles + 1}-${i + 1}`,
+        title: f.name,
+        source: `${f.name}${p.hint ? ` ${p.hint}` : ''}`,
+        chunk: i + 1,
+        text: p.text
+      }
+      docs.push(doc)
+    })
+    loadedFiles += 1
+  }
+  totalChunks += docs.length
+  await mini.addAllAsync(docs)
+  // persistencia ligera
   try {
-    const parsed = JSON.parse(raw);
+    localStorage.setItem('rag:index:stats', JSON.stringify({ files: loadedFiles, fragments: totalChunks }))
+  } catch {}
+  return { files: loadedFiles, fragments: totalChunks }
+}
+
+export function clearIndex () {
+  newIndex()
+  try { localStorage.removeItem('rag:index:stats') } catch {}
+}
+
+function uniqueBy (arr, key) {
+  const seen = new Set()
+  const out = []
+  for (const it of arr) {
+    const k = it[key]
+    if (!seen.has(k)) {
+      seen.add(k); out.push(it)
+    }
+  }
+  return out
+}
+
+/**
+ * Busca en el índice y arma una respuesta corta + referencias
+ * @returns { text: string, refs: Array<{source:string, title:string}> }
+ */
+export async function answerQuery (question, options = {}) {
+  ensureIndex()
+  const topK = options.topK ?? 5
+  const res = mini.search(question, { combineWith: 'AND' }) || []
+  if (!res.length) {
     return {
-      N: parsed.N,
-      avgLen: parsed.avgLen,
-      df: entriesToMap(parsed.df),
-      docs: (parsed.docs || []).map((d) => ({
-        ...d,
-        tf: entriesToMap(d.tf),
-      })),
-    };
-  } catch {
-    return null;
+      text: 'No encontré coincidencias en los documentos cargados. Puedes subir más archivos o reformular la consulta.',
+      refs: []
+    }
   }
+  const top = res.slice(0, topK)
+  const bullets = top.map(r => {
+    const t = (r.text || '').trim().replace(/\s+/g, ' ')
+    const snippet = t.length > 220 ? t.slice(0, 220) + '…' : t
+    return `• ${snippet}  —  (${r.source})`
+  })
+  const refs = uniqueBy(top.map(r => ({ source: r.source, title: r.title })), 'source')
+  const text = `Basado en los documentos cargados, esto es lo más relevante:\n\n${bullets.join('\n')}\n\n` +
+               `Sugerencia: si quieres más precisión, sube normativa NTSyCS/SITR/IEC 62443 o planillas de evaluación.`
+  return { text, refs }
 }
 
-export function clearIndex() {
-  localStorage.removeItem(STORAGE_KEY);
+// Estado ligero para la UI (opcional)
+export function getIndexStats () {
+  try {
+    const raw = localStorage.getItem('rag:index:stats')
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return { files: loadedFiles, fragments: totalChunks }
 }
 
-// ---------------- Indexado desde archivos ----------------
-// Esta función debe llamarse con documentos ya “troceados”/extraídos.
-export async function indexDocuments(rawDocs) {
-  const idx = buildIndex(rawDocs);
-  saveIndex(idx);
-  return idx;
-}
-
-// ---------------- Consulta BM25 ----------------
-export function answerQuery(query, topK = 5) {
-  const idx = loadIndex();
-  if (!idx || !idx.docs?.length) {
-    throw new Error("No hay índice cargado/guardado.");
-  }
-
-  const k1 = 1.5;
-  const b = 0.75;
-  const terms = uniq(tokenize(query));
-
-  const scores = idx.docs.map((doc) => {
-    let score = 0;
-    terms.forEach((t) => {
-      const df = safeGet(idx.df, t);
-      if (df === 0) return;
-
-      const idf = Math.log(1 + (idx.N - df + 0.5) / (df + 0.5));
-      const tf = safeGet(doc.tf, t);
-      if (tf === 0) return;
-
-      const denom = tf + k1 * (1 - b + (b * doc.len) / (idx.avgLen || 1));
-      score += idf * ((tf * (k1 + 1)) / (denom || 1e-6));
-    });
-    return { doc, score };
-  });
-
-  scores.sort((a, b2) => b2.score - a.score);
-  const hits = scores.slice(0, topK).filter((h) => h.score > 0);
-
-  return {
-    hits: hits.map((h) => ({
-      id: h.doc.id,
-      title: h.doc.title,
-      text: h.doc.text,
-      meta: h.doc.meta,
-      score: Number(h.score.toFixed(5)),
-    })),
-    totalDocs: idx.N,
-  };
+export default {
+  loadDocs,
+  answerQuery,
+  clearIndex,
+  getIndexStats
 }
