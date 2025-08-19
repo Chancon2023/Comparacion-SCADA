@@ -1,11 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "tailwindcss";
-import autoprefixer from "autoprefixer";
 
 export default defineConfig({
   plugins: [react()],
-  css: {
-    postcss: { plugins: [tailwindcss(), autoprefixer()] },
+  build: {
+    rollupOptions: {
+      // Keep heavy runtime libs external to avoid deep bundle issues on Netlify
+      external: ["papaparse", "pdfjs-dist/legacy/build/pdf", "xlsx"]
+    }
   },
+  optimizeDeps: {
+    // Ensure dev server pre-bundling doesn't try to crawl these
+    exclude: ["papaparse", "pdfjs-dist/legacy/build/pdf", "xlsx"]
+  }
 });

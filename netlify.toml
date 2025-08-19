@@ -1,8 +1,6 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
+command = "npm run prebuild && npm run build"
+publish = "dist"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[functions]
+node_bundler = "esbuild"

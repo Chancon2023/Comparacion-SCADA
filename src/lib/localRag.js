@@ -1,151 +1,104 @@
-// src/lib/localRag.js
-// Utilidades locales para convertir archivos en "documentos" de texto.
-// Esta versión usa import dinámico de PDF.js para evitar errores de bundling en Netlify.
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 
-/**
- * Convierte archivos seleccionados a documentos de texto simples.
- * @param {File[]} files
- * @returns {Promise<Array<{id:string,title:string,text:string,source:string}>>}
- */
-export async function parseFilesToDocs(files = []) {
-  const results = [];
-  for (const file of files) {
-    const ext = file.name.toLowerCase().split('.').pop();
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const STORAGE_KEY = "local_rag_docs_v1";
+
+async function fileToArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function fileToText(file) {
+  const name = file.name.toLowerCase();
+  const ext = name.split(".").pop();
+
+  if (ext === "pdf") {
+    const buf = await fileToArrayBuffer(file);
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((i) => i.str).join(" ");
+      fullText += pageText + "\n";
+    }
+    return fullText;
+  }
+
+  if (ext === "csv") {
+    const text = await file.text();
+    const parsed = Papa.parse(text, { header: false });
+    return parsed.data.map((row) => row.join(",")).join("\n");
+  }
+
+  if (ext === "json") {
+    const text = await file.text();
     try {
-      if (ext === 'pdf') {
-        const text = await extractTextFromPDF(file);
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text,
-          source: 'pdf'
-        });
-      } else if (ext === 'txt' || ext === 'md') {
-        const text = await file.text();
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text,
-          source: ext
-        });
-      } else if (ext === 'csv') {
-        const text = await extractTextFromCSV(file);
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text,
-          source: 'csv'
-        });
-      } else if (ext === 'json') {
-        const raw = await file.text();
-        let text = raw;
-        try {
-          const obj = JSON.parse(raw);
-          text = JSON.stringify(obj, null, 2);
-        } catch {}
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text,
-          source: 'json'
-        });
-      } else if (ext === 'xlsx' || ext === 'xls') {
-        // Si quieres soporte real para Excel, agrega "xlsx" a tus deps e implementa aquí.
-        const note = `El archivo ${file.name} es Excel. Para parseo local, agrega la dependencia "xlsx". Por ahora, súbelo como CSV.`;
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text: note,
-          source: 'excel'
-        });
-      } else {
-        // Desconocido: intentamos leer como texto plano
-        const text = await file.text();
-        results.push({
-          id: crypto.randomUUID(),
-          title: file.name,
-          text,
-          source: ext || 'file'
-        });
-      }
-    } catch (err) {
-      results.push({
-        id: crypto.randomUUID(),
-        title: file.name,
-        text: `No se pudo leer ${file.name}. Error: ${err?.message || err}`,
-        source: 'error'
-      });
+      const obj = JSON.parse(text);
+      return typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+    } catch (e) {
+      return text;
     }
   }
-  return results;
+
+  if (ext === "xlsx" || ext === "xls") {
+    const buf = await fileToArrayBuffer(file);
+    const wb = XLSX.read(buf, { type: "array" });
+    let out = "";
+    wb.SheetNames.forEach((sn) => {
+      const sheet = wb.Sheets[sn];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      out += `# ${sn}\n${csv}\n`;
+    });
+    return out;
+  }
+
+  return await file.text();
 }
 
-async function extractTextFromCSV(file) {
+export async function parseFilesToDocs(fileList) {
+  const files = Array.from(fileList || []);
+  const docs = [];
+  for (const file of files) {
+    const text = await fileToText(file);
+    docs.push({
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      name: file.name,
+      text,
+      meta: { size: file.size, type: file.type }
+    });
+  }
+  saveDocs(docs);
+  return docs;
+}
+
+export function saveDocs(docs) {
   try {
-    const { Papa } = await import('papaparse'); // dynamic
-    const content = await file.text();
-    const parsed = Papa.parse(content, { header: true });
-    if (parsed?.data?.length) {
-      const lines = parsed.data.map((row) => Object.values(row).join(' | ')).join('\\n');
-      return lines;
-    }
-    return content;
-  } catch {
-    // Fallback: devolver el texto tal cual
-    return await file.text();
+    const existing = loadDocs();
+    const merged = [...existing, ...docs].slice(-100);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  } catch (e) {
+    console.warn("No se pudo guardar documentos en localStorage:", e);
   }
 }
 
-async function extractTextFromPDF(file) {
-  const buf = await file.arrayBuffer();
-  // Import dinámico de pdfjs (legacy para compatibilidad de browser)
-  const pdfjsLib = await import(/* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf');
-  // Intento 1: worker desde el propio paquete (soporta Vite >= 4)
+export function loadDocs() {
   try {
-    const worker = await import(/* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf.worker.mjs');
-    if (worker && worker.default) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;
-    }
-  } catch {
-    // Intento 2: CDN (fallback seguro en producción)
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
-
-  const loadingTask = pdfjsLib.getDocument({ data: buf });
-  const pdf = await loadingTask.promise;
-  let fullText = '';
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const pageText = content.items.map((it) => ('str' in it ? it.str : '')).join(' ');
-    fullText += pageText + '\\n\\n';
-  }
-  return fullText.trim();
-}
-
-/**
- * Guarda documentos en localStorage
- * @param {Array} docs
- * @param {string} key
- */
-export function saveDocs(docs, key = 'local_docs') {
-  try {
-    localStorage.setItem(key, JSON.stringify(docs ?? []));
-  } catch {}
-}
-
-/**
- * Carga documentos desde localStorage
- * @param {string} key
- * @returns {Array}
- */
-export function loadDocs(key = 'local_docs') {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
+}
+
+export function clearDocs() {
+  localStorage.removeItem(STORAGE_KEY);
 }
