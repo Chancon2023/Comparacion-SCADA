@@ -1,0 +1,34 @@
+--- a/src/pages/LocalAssistant.jsx
++++ b/src/pages/LocalAssistant.jsx
+@@
+-import { extractTextFromPDF } from "../lib/pdfLoader";
++import { extractTextFromPDF } from "../lib/pdfLoader";
++import { extractTextFromExcel } from "../lib/excelLoader";
+@@
+-  const handleFiles = async (fileList) => {
++  const handleFiles = async (fileList) => {
+     const arr = Array.from(fileList || []);
+     for (const file of arr) {
+-      const ext = file.name.toLowerCase().split(".").pop();
++      const ext = file.name.toLowerCase().split(".").pop();
+       try {
+         let text = "";
+         let meta = {};
+-        if (ext === "pdf") {
++        if (ext === "pdf") {
+           const res = await extractTextFromPDF(file);
+           text = res.text;
+           meta = res.meta;
+-        } else if (ext === "txt" || ext === "md") {
++        } else if (ext === "txt" || ext === "md") {
+           text = await file.text();
++        } else if (ext === "xlsx" || ext === "xls" || ext === "csv") {
++          const res = await extractTextFromExcel(file);
++          text = res.text;
++          meta = res.meta;
+         } else {
+           continue;
+         }
+@@
+-  <input type="file" multiple accept=".pdf,.txt,.md" onChange={e=>handleFiles(e.target.files)} />
++  <input type="file" multiple accept=".pdf,.txt,.md,.xlsx,.xls,.csv" onChange={e=>handleFiles(e.target.files)} />
