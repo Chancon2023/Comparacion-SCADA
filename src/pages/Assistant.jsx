@@ -1,107 +1,80 @@
+
 // src/pages/Assistant.jsx
-import React, { useEffect, useRef, useState } from "react";
-import UploadPanel from "../components/UploadPanel";
-import { loadDocs, answerQuery } from "../lib/localRag";
+import React, { useState, useRef } from "react";
+import { loadDocs, answerQuery, clearIndex } from "../lib/localRag";
 
 export default function Assistant() {
-  const [docs, setDocs] = useState([]);
   const [messages, setMessages] = useState([
-    {
-      id: "sys-hello",
-      role: "assistant",
-      text:
-        "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y selección de plataformas.",
-    },
+    { role: "assistant", content: "Hola, soy tu asistente SCADA. Puedo orientarte sobre NTSyCS, SITR, IEC 62443 y selección de plataformas. Sube la documentación (PDF/TXT/CSV/XLSX) con el botón 'Cargar documentos' y pregúntame." }
   ]);
-  const [input, setInput] = useState("");
-  const endRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
 
-  useEffect(() => {
-    setDocs(loadDocs());
-  }, []);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const onLoadedDocs = (d) => setDocs(d);
-
-  const send = async () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
-
-    // Si no hay docs, responde genérico
-    if (!docs.length) {
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          text:
-            "Aún no has cargado documentos. Usa el botón “Elegir archivos” arriba y pregunta de nuevo. " +
-            "También puedo responder en términos generales si lo indicas.",
-        },
-      ]);
-      return;
+  const onUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setBusy(true);
+    try {
+      const res = await loadDocs([...files]);
+      setMessages((m) => [...m, { role: "assistant", content: res.message }]);
+    } catch (err) {
+      setMessages((m) => [...m, { role: "assistant", content: "No pude indexar los documentos: " + (err?.message || err) }]);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
+  };
 
-    const { answer, sources } = answerQuery(text, docs);
-    setMessages((m) => [
-      ...m,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text:
-          (answer || "No encontré coincidencias.") +
-          (sources?.length ? `\n\nFuentes: ${sources.join(", ")}` : ""),
-      },
-    ]);
+  const onAsk = async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const q = (form.get("q") || "").toString().trim();
+    if (!q) return;
+    setMessages((m) => [...m, { role: "user", content: q }]);
+    setBusy(true);
+    try {
+      const { answer } = await answerQuery(q);
+      setMessages((m) => [...m, { role: "assistant", content: answer }]);
+    } catch (err) {
+      setMessages((m) => [...m, { role: "assistant", content: "No pude consultar el motor inteligente. Detalle: " + (err?.message || err) }]);
+    } finally {
+      setBusy(false);
+    }
+    e.currentTarget.reset();
+  };
+
+  const onClear = () => {
+    clearIndex();
+    setMessages([{ role: "assistant", content: "Índice borrado. Sube documentos nuevamente para consultar." }]);
   };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-2xl md:text-3xl font-semibold mb-2">Asistente</h1>
-      <p className="text-slate-600 mb-4">
-        Pregunta sobre NTSyCS, SITR, IEC 62443 y selección de SCADA para minería. Carga tu
-        documentación para respuestas basadas en ella.
-      </p>
+      <div className="mb-3 text-sm text-slate-600">
+        Sube <strong>PDF, TXT/MD, CSV/JSON y Excel (XLS/XLSX)</strong>. El análisis es local (en tu navegador).
+      </div>
 
-      {/* Panel de carga SIEMPRE visible */}
-      <UploadPanel onLoaded={onLoadedDocs} />
+      <div className="flex items-center gap-2 mb-5">
+        <label className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 bg-white shadow cursor-pointer hover:bg-slate-50">
+          <input ref={fileRef} onChange={onUpload} type="file" multiple className="hidden" accept=".pdf,.txt,.md,.csv,.json,.xls,.xlsx" />
+          Cargar documentos
+        </label>
+        <button onClick={onClear} className="px-3 py-2 rounded-xl border bg-white shadow hover:bg-slate-50">Borrar índice</button>
+        {busy && <span className="text-sm text-slate-500">Trabajando…</span>}
+      </div>
 
-      <div className="space-y-3">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={
-              m.role === "user"
-                ? "ml-auto max-w-[85%] bg-slate-900 text-white rounded-2xl px-4 py-2"
-                : "max-w-[85%] bg-slate-50 rounded-2xl px-4 py-2"
-            }
-          >
-            {m.text}
+      <div className="space-y-3 mb-6">
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "assistant" ? "bg-slate-50 rounded-xl p-3" : "bg-slate-900 text-white rounded-xl p-3 ml-auto max-w-[80%]"}>
+            {m.content}
           </div>
         ))}
-        <div ref={endRef} />
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          className="flex-1 rounded-xl border px-3 py-2"
-          placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-        />
-        <button
-          onClick={send}
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
-        >
-          Enviar
-        </button>
-      </div>
+      <form onSubmit={onAsk} className="flex items-center gap-2">
+        <input name="q" placeholder="Ej: ¿qué SCADA cumple mejor NTSyCS para subestaciones?" className="flex-1 border rounded-xl px-3 py-2" />
+        <button disabled={busy} className="px-4 py-2 rounded-xl bg-slate-900 text-white">{busy ? "..." : "Enviar"}</button>
+      </form>
     </div>
   );
 }
