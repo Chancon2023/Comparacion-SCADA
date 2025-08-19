@@ -1,21 +1,17 @@
 import React, { useRef } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
-/**
- * MiningConclusion.jsx
- * Sección fija con "Conclusión para Cliente en la Industria Minera"
- * + botón "Exportar PDF" (cliente-side con jsPDF + html2canvas).
- *
- * Dependencias (agregar a tu proyecto):
- *   npm i jspdf html2canvas
- */
+// Nota: usamos imports dinámicos para evitar problemas de bundling en algunos entornos
+// (Netlify/Vite) y reducir el peso inicial del bundle.
 export default function MiningConclusion() {
   const ref = useRef(null);
 
   const exportPDF = async () => {
     const node = ref.current;
     if (!node) return;
+
+    const html2canvas = (await import("html2canvas")).default;
+    const { jsPDF } = await import("jspdf");
+
     const canvas = await html2canvas(node, {
       scale: 2,
       useCORS: true,
@@ -31,7 +27,6 @@ export default function MiningConclusion() {
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    // Paginado vertical si el bloque supera el alto de una hoja
     let y = 0;
     let remaining = imgHeight;
     while (remaining > 0) {
@@ -53,16 +48,11 @@ export default function MiningConclusion() {
         <button
           onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
-          title="Exportar la sección como PDF"
+          title="Exportar PDF"
         >
-          {/* Ícono simple inline (evita dependencias externas) */}
-          <svg xmlns="http://.w3.org/2000/svg" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" strokeWidth="2"
-               className="w-4 h-4">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <path d="M14 2v6h6"/>
-            <path d="M12 18v-6"/>
-            <path d="M9 15l3 3 3-3"/>
+          {/* Ícono simple para no depender de librerías */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="-mt-px">
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           Exportar PDF
         </button>
@@ -74,32 +64,17 @@ export default function MiningConclusion() {
       >
         <p>
           <strong>zenon Energy Edition</strong> como <em>Network Control System</em> es la opción más adecuada
-          para un centro de control minero debido a:
+          para un centro de control minero por su plataforma unificada, funcionalidades nativas (GIS, estimador de estado),
+          compatibilidad entre versiones, acceso web/remote nativo, agnosticismo de hardware/AV y soporte local en Chile.
         </p>
+
         <ul className="list-disc pl-5 space-y-2">
-          <li>
-            Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos
-            de integración.
-          </li>
-          <li>
-            Funcionalidades clave nativas, como GIS y estimador de estado, que en otras soluciones requieren módulos
-            adicionales o integraciones externas.
-          </li>
-          <li>
-            Compatibilidad garantizada entre versiones, asegurando la continuidad operativa y reduciendo los costos de
-            migración.
-          </li>
-          <li>
-            Acceso remoto y web nativo, facilitando la supervisión y el control desde diferentes ubicaciones.
-          </li>
-          <li>
-            Agnosticismo de hardware y antivirus, ofreciendo flexibilidad en la elección de infraestructura y
-            soluciones de seguridad.
-          </li>
-          <li>
-            Soporte local en Chile a través de integradores certificados, asegurando una implementación y
-            mantenimiento eficientes.
-          </li>
+          <li>Unificación de SCADA, DMS, GIS, Historian y más (menos integración y costos).</li>
+          <li>Funcionalidades clave nativas que en otras soluciones requieren módulos adicionales.</li>
+          <li>Compatibilidad entre versiones, con menores costos de migración.</li>
+          <li>Acceso remoto/web nativo para operación distribuida.</li>
+          <li>Agnóstico de hardware y antivirus.</li>
+          <li>Soporte local con integradores certificados.</li>
         </ul>
 
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900">
