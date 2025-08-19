@@ -1,33 +1,13 @@
 import React, { useRef } from "react";
-
-// Inline SVG download icon (no external deps)
-const DownloadIcon = (props) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    width="18"
-    height="18"
-    aria-hidden="true"
-    {...props}
-  >
-    <path d="M12 3a1 1 0 011 1v9.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L11 13.586V4a1 1 0 011-1z" />
-    <path d="M5 15a1 1 0 011 1v2h12v-2a1 1 0 112 0v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3a1 1 0 012 0v2h2v-2a1 1 0 011-1z" />
-  </svg>
-);
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export default function MiningConclusion() {
   const ref = useRef(null);
 
-  async function exportPDF() {
+  const exportPDF = async () => {
     const node = ref.current;
     if (!node) return;
-
-    // Lazy-load ESM versions from CDN to avoid bundler deps
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("https://cdn.skypack.dev/html2canvas@1.4.1"),
-      import("https://cdn.skypack.dev/jspdf@2.5.1"),
-    ]);
 
     const canvas = await html2canvas(node, {
       scale: 2,
@@ -54,7 +34,7 @@ export default function MiningConclusion() {
     }
 
     pdf.save("conclusion-mineria.pdf");
-  }
+  };
 
   return (
     <section className="mt-10">
@@ -62,11 +42,28 @@ export default function MiningConclusion() {
         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
           Conclusión para Cliente en la Industria Minera
         </h2>
+
         <button
           onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
         >
-          <DownloadIcon /> Exportar PDF
+          {/* Ícono inline (download) */}
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M12 15V3" />
+          </svg>
+          Exportar PDF
         </button>
       </div>
 
@@ -80,8 +77,8 @@ export default function MiningConclusion() {
         </p>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos
-            de integración.
+            Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos de
+            integración.
           </li>
           <li>
             Funcionalidades clave nativas, como GIS y estimador de estado, que en otras soluciones requieren módulos
