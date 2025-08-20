@@ -1,16 +1,33 @@
 import React, { useRef } from "react";
 
-// Nota: usamos imports dinámicos para evitar problemas de bundling en algunos entornos
-// (Netlify/Vite) y reducir el peso inicial del bundle.
+// Inline SVG download icon (no external deps)
+const DownloadIcon = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    width="18"
+    height="18"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M12 3a1 1 0 011 1v9.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L11 13.586V4a1 1 0 011-1z" />
+    <path d="M5 15a1 1 0 011 1v2h12v-2a1 1 0 112 0v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3a1 1 0 012 0v2h2v-2a1 1 0 011-1z" />
+  </svg>
+);
+
 export default function MiningConclusion() {
   const ref = useRef(null);
 
-  const exportPDF = async () => {
+  async function exportPDF() {
     const node = ref.current;
     if (!node) return;
 
-    const html2canvas = (await import("html2canvas")).default;
-    const { jsPDF } = await import("jspdf");
+    // Lazy-load ESM versions from CDN to avoid bundler deps
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("https://cdn.skypack.dev/html2canvas@1.4.1"),
+      import("https://cdn.skypack.dev/jspdf@2.5.1"),
+    ]);
 
     const canvas = await html2canvas(node, {
       scale: 2,
@@ -37,7 +54,7 @@ export default function MiningConclusion() {
     }
 
     pdf.save("conclusion-mineria.pdf");
-  };
+  }
 
   return (
     <section className="mt-10">
@@ -48,13 +65,8 @@ export default function MiningConclusion() {
         <button
           onClick={exportPDF}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-gray-900 text-white shadow hover:bg-gray-800 focus:outline-none"
-          title="Exportar PDF"
         >
-          {/* Ícono simple para no depender de librerías */}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="-mt-px">
-            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Exportar PDF
+          <DownloadIcon /> Exportar PDF
         </button>
       </div>
 
@@ -64,17 +76,32 @@ export default function MiningConclusion() {
       >
         <p>
           <strong>zenon Energy Edition</strong> como <em>Network Control System</em> es la opción más adecuada
-          para un centro de control minero por su plataforma unificada, funcionalidades nativas (GIS, estimador de estado),
-          compatibilidad entre versiones, acceso web/remote nativo, agnosticismo de hardware/AV y soporte local en Chile.
+          para un centro de control minero debido a:
         </p>
-
         <ul className="list-disc pl-5 space-y-2">
-          <li>Unificación de SCADA, DMS, GIS, Historian y más (menos integración y costos).</li>
-          <li>Funcionalidades clave nativas que en otras soluciones requieren módulos adicionales.</li>
-          <li>Compatibilidad entre versiones, con menores costos de migración.</li>
-          <li>Acceso remoto/web nativo para operación distribuida.</li>
-          <li>Agnóstico de hardware y antivirus.</li>
-          <li>Soporte local con integradores certificados.</li>
+          <li>
+            Plataforma unificada que integra SCADA, DMS, GIS, Historian y más, reduciendo la complejidad y los costos
+            de integración.
+          </li>
+          <li>
+            Funcionalidades clave nativas, como GIS y estimador de estado, que en otras soluciones requieren módulos
+            adicionales o integraciones externas.
+          </li>
+          <li>
+            Compatibilidad garantizada entre versiones, asegurando la continuidad operativa y reduciendo los costos de
+            migración.
+          </li>
+          <li>
+            Acceso remoto y web nativo, facilitando la supervisión y el control desde diferentes ubicaciones.
+          </li>
+          <li>
+            Agnosticismo de hardware y antivirus, ofreciendo flexibilidad en la elección de infraestructura y
+            soluciones de seguridad.
+          </li>
+          <li>
+            Soporte local en Chile a través de integradores certificados, asegurando una implementación y
+            mantenimiento eficientes.
+          </li>
         </ul>
 
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900">
