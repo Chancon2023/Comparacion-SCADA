@@ -1,1 +1,0 @@
-Comparacion-SCADA
