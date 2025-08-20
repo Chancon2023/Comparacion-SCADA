@@ -1,8 +1,0 @@
-*** Begin Patch
-*** Update File: package.json
-@@
-   "dependencies": {
-+    "pdfjs-dist": "^3.11.174",
-+    "papaparse": "^5.4.1"
-   }
-*** End Patch
