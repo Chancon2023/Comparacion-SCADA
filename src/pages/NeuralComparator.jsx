@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Navbar from "../components/Navbar.jsx";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import { motion } from "framer-motion";
@@ -65,6 +65,177 @@ const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 const relu = (x) => Math.max(0, x);
 const dot = (a, b) => a.reduce((acc, v, i) => acc + v * (b[i] ?? 0), 0);
 
+const RESERVED_KEYS = new Set([
+  "id",
+  "name",
+  "vendor",
+  "scores",
+  "pros",
+  "cons",
+  "comments",
+  "red_flags",
+  "description",
+]);
+
+const clampScore = (value) => {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, Math.round(value)));
+};
+
+const cloneDataset = (dataset) => JSON.parse(JSON.stringify(dataset));
+
+const normalizePlatform = (platform, fallbackId) => {
+  if (!platform || typeof platform !== "object") return null;
+  const scores = {};
+
+  if (platform.scores && typeof platform.scores === "object") {
+    for (const [key, value] of Object.entries(platform.scores)) {
+      const num = Number(value);
+      if (Number.isFinite(num)) {
+        scores[key] = clampScore(num);
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(platform)) {
+    if (RESERVED_KEYS.has(key)) continue;
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      scores[key] = clampScore(num);
+    }
+  }
+
+  const rawId = platform.id ?? fallbackId ?? `platform-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const normalized = {
+    id: String(rawId),
+    name: String(platform.name ?? `Plataforma sin nombre`),
+    vendor: String(platform.vendor ?? "Proveedor no especificado"),
+    scores,
+    pros: Array.isArray(platform.pros) ? platform.pros : [],
+    cons: Array.isArray(platform.cons) ? platform.cons : [],
+    red_flags: Array.isArray(platform.red_flags) ? platform.red_flags : [],
+    comments: Array.isArray(platform.comments) ? platform.comments : [],
+  };
+
+  return normalized;
+};
+
+const detectDelimiter = (line) => {
+  if (line.includes(";")) return ";";
+  if (line.includes("\t")) return "\t";
+  return ",";
+};
+
+const parseCsv = (text) => {
+  const rows = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!rows.length) return [];
+
+  const delimiter = detectDelimiter(rows[0]);
+  const headers = rows[0].split(delimiter).map((h) => h.trim());
+
+  return rows.slice(1).map((row) => {
+    const values = row.split(delimiter).map((value) => value.trim());
+    const record = {};
+    headers.forEach((header, index) => {
+      record[header] = values[index];
+    });
+    return record;
+  });
+};
+
+const normalizeUpload = (raw, idFactory) => {
+  if (!raw) return { platforms: [], weights: {} };
+
+  if (Array.isArray(raw)) {
+    return {
+      platforms: raw
+        .map((item, index) => normalizePlatform(item, idFactory(index)))
+        .filter(Boolean),
+      weights: {},
+    };
+  }
+
+  const sourcePlatforms = Array.isArray(raw.platforms)
+    ? raw.platforms
+    : Array.isArray(raw.data)
+    ? raw.data
+    : [];
+
+  return {
+    platforms: sourcePlatforms
+      .map((item, index) => normalizePlatform(item, idFactory(index)))
+      .filter(Boolean),
+    weights: raw.weights && typeof raw.weights === "object" ? raw.weights : {},
+  };
+};
+
+const mergeDataset = (current, incoming, idFactory) => {
+  if (!current) {
+    const dataset = {
+      version: incoming.version ?? "custom",
+      weights: incoming.weights ?? {},
+      platforms: [],
+    };
+    incoming.platforms.forEach((platform, index) => {
+      const normalized = normalizePlatform(platform, idFactory(index));
+      if (normalized) {
+        dataset.platforms.push(normalized);
+      }
+    });
+    return { dataset, added: dataset.platforms.length, replaced: 0 };
+  }
+
+  const weights = {
+    ...(current.weights || {}),
+    ...(incoming.weights || {}),
+  };
+
+  const platforms = current.platforms ? [...current.platforms] : [];
+  const indexById = new Map(platforms.map((platform, index) => [platform.id, index]));
+  let added = 0;
+  let replaced = 0;
+
+  incoming.platforms.forEach((platform, index) => {
+    const normalized = normalizePlatform(platform, idFactory(index));
+    if (!normalized) return;
+
+    if (indexById.has(normalized.id)) {
+      const existingIndex = indexById.get(normalized.id);
+      const existing = platforms[existingIndex];
+      platforms[existingIndex] = {
+        ...existing,
+        ...normalized,
+        scores: {
+          ...(existing?.scores || {}),
+          ...(normalized.scores || {}),
+        },
+      };
+      replaced += 1;
+    } else {
+      const newId = normalized.id || idFactory(index);
+      const ensured = { ...normalized, id: newId };
+      platforms.push(ensured);
+      indexById.set(ensured.id, platforms.length - 1);
+      added += 1;
+    }
+  });
+
+  return {
+    dataset: {
+      ...current,
+      weights,
+      platforms,
+    },
+    added,
+    replaced,
+  };
+};
+
 function evaluatePlatform(platform, requirements, features, weightMap) {
   const diffVector = features.map((feat) => {
     const score = platform.scores?.[feat] ?? 0;
@@ -128,43 +299,322 @@ function badgeClass(gap) {
 }
 
 export default function NeuralComparator() {
+  const [baseDataset, setBaseDataset] = useState(null);
   const [dataset, setDataset] = useState(null);
   const [requirements, setRequirements] = useState({});
   const [selectedScenario, setSelectedScenario] = useState("mineria_247");
+  const [uploadFeedback, setUploadFeedback] = useState(null);
+  const [manualFeedback, setManualFeedback] = useState(null);
+  const [manualPlatform, setManualPlatform] = useState({
+    name: "",
+    vendor: "",
+    scores: {},
+  });
+  const initialRequirementsRef = useRef(false);
 
   useEffect(() => {
     fetch("/scada_dataset.json")
       .then((r) => r.json())
       .then((json) => {
-        setDataset(json);
+        const normalized = normalizeUpload(json, (index) => `seed-${index}`);
+        const datasetPayload = {
+          version: json.version ?? "seed",
+          weights:
+            normalized.weights && Object.keys(normalized.weights).length
+              ? normalized.weights
+              : json.weights || {},
+          platforms: normalized.platforms.filter(Boolean),
+        };
+        setBaseDataset(cloneDataset(datasetPayload));
+        setDataset(cloneDataset(datasetPayload));
+      })
+      .catch((error) => {
+        console.error("No se pudo cargar el dataset base", error);
       });
   }, []);
 
   const features = useMemo(() => {
     if (!dataset) return [];
-    return Object.keys(dataset.weights || {});
+    const weightedKeys = Object.keys(dataset.weights || {});
+    const featureSet = new Set(weightedKeys);
+    (dataset.platforms || []).forEach((platform) => {
+      Object.keys(platform.scores || {}).forEach((feat) => featureSet.add(feat));
+    });
+
+    const extras = Array.from(featureSet).filter((feat) => !weightedKeys.includes(feat));
+    extras.sort((a, b) => a.localeCompare(b));
+    return [...weightedKeys, ...extras];
   }, [dataset]);
 
   useEffect(() => {
-    if (!dataset) return;
+    if (!dataset || !features.length) return;
     const scenario = SCENARIOS.find((s) => s.id === "mineria_247");
     const averages = {};
-    for (const feat of features) {
-      const scenarioValue = scenario?.values?.[feat];
-      if (scenarioValue != null) {
-        averages[feat] = scenarioValue;
-        continue;
-      }
-      const sum = dataset.platforms.reduce(
+
+    features.forEach((feat) => {
+      const sum = (dataset.platforms || []).reduce(
         (acc, platform) => acc + (platform.scores?.[feat] ?? 0),
         0
       );
-      const avg = dataset.platforms.length ? sum / dataset.platforms.length : 80;
-      averages[feat] = Math.round(avg);
+      const avg = (dataset.platforms || []).length
+        ? sum / (dataset.platforms || []).length
+        : 80;
+      const scenarioValue = scenario?.values?.[feat];
+      averages[feat] = Math.round(
+        scenarioValue != null ? scenarioValue : avg
+      );
+    });
+
+    let shouldResetScenario = false;
+
+    setRequirements((prev) => {
+      const prevKeys = Object.keys(prev || {});
+      if (!initialRequirementsRef.current || prevKeys.length === 0) {
+        initialRequirementsRef.current = true;
+        shouldResetScenario = true;
+        return { ...averages };
+      }
+
+      const next = { ...prev };
+      let changed = false;
+
+      features.forEach((feat) => {
+        if (next[feat] == null) {
+          next[feat] = averages[feat];
+          changed = true;
+        }
+      });
+
+      Object.keys(next).forEach((feat) => {
+        if (!features.includes(feat)) {
+          delete next[feat];
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+
+    if (shouldResetScenario) {
+      setSelectedScenario(scenario?.id ?? "personalizado");
     }
-    setRequirements(averages);
-    setSelectedScenario(scenario?.id ?? "personalizado");
   }, [dataset, features]);
+
+  useEffect(() => {
+    setManualPlatform((prev) => {
+      const nextScores = { ...(prev.scores || {}) };
+      let changed = false;
+
+      features.forEach((feat) => {
+        if (nextScores[feat] == null) {
+          nextScores[feat] = requirements[feat] ?? 80;
+          changed = true;
+        }
+      });
+
+      Object.keys(nextScores).forEach((feat) => {
+        if (!features.includes(feat)) {
+          delete nextScores[feat];
+          changed = true;
+        }
+      });
+
+      if (!changed) return prev;
+      return {
+        ...prev,
+        scores: nextScores,
+      };
+    });
+  }, [features, requirements]);
+
+  const createIdFactory = useCallback(() => {
+    const batch = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return (index) => `custom-${batch}-${index}`;
+  }, []);
+
+  const handleDatasetUpload = useCallback(
+    (event) => {
+      const input = event.target;
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      const idFactory = createIdFactory();
+
+      reader.onload = () => {
+        try {
+          const text = reader.result;
+          let parsed;
+
+          if (extension === "json") {
+            parsed = JSON.parse(text);
+          } else if (extension === "csv") {
+            parsed = parseCsv(text);
+          } else {
+            throw new Error("Formato no soportado. Sube un archivo JSON o CSV.");
+          }
+
+          const normalized = normalizeUpload(parsed, idFactory);
+          if (!normalized.platforms.length) {
+            throw new Error("El archivo no contiene plataformas válidas.");
+          }
+
+          setDataset((prev) => {
+            const { dataset: merged, added, replaced } = mergeDataset(
+              prev,
+              normalized,
+              idFactory
+            );
+            setUploadFeedback({
+              type: "success",
+              message: `Se integraron ${added} plataformas nuevas y se actualizaron ${replaced}.`,
+            });
+            setManualFeedback(null);
+            setSelectedScenario("personalizado");
+            return merged;
+          });
+        } catch (error) {
+          console.error("Error al procesar el archivo SCADA", error);
+          setUploadFeedback({
+            type: "error",
+            message: error.message || "No se pudo interpretar el archivo proporcionado.",
+          });
+        } finally {
+          input.value = "";
+        }
+      };
+
+      reader.readAsText(file);
+    },
+    [createIdFactory]
+  );
+
+  const handleManualFieldChange = useCallback((field, value) => {
+    setManualPlatform((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleManualScoreChange = useCallback((feature, value) => {
+    setManualPlatform((prev) => ({
+      ...prev,
+      scores: {
+        ...(prev.scores || {}),
+        [feature]: value,
+      },
+    }));
+  }, []);
+
+  const handleManualSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      setManualFeedback(null);
+
+      if (!dataset) {
+        setManualFeedback({
+          type: "error",
+          message: "Carga primero el dataset base antes de agregar plataformas manuales.",
+        });
+        return;
+      }
+
+      const trimmedName = manualPlatform.name.trim();
+      if (!trimmedName) {
+        setManualFeedback({
+          type: "error",
+          message: "Indica el nombre de la plataforma para registrarla.",
+        });
+        return;
+      }
+
+      const trimmedVendor = manualPlatform.vendor.trim();
+      const nextScores = {};
+      let hasExplicitScore = false;
+
+      features.forEach((feat) => {
+        const rawValue = manualPlatform.scores?.[feat];
+        if (rawValue === "" || rawValue == null) {
+          nextScores[feat] = clampScore(requirements[feat] ?? 80);
+          return;
+        }
+
+        const numeric = Number(rawValue);
+        if (Number.isFinite(numeric)) {
+          nextScores[feat] = clampScore(numeric);
+          hasExplicitScore = true;
+        } else {
+          nextScores[feat] = clampScore(requirements[feat] ?? 80);
+        }
+      });
+
+      if (!hasExplicitScore) {
+        setManualFeedback({
+          type: "error",
+          message: "Ingresa al menos un puntaje numérico para comparar la plataforma.",
+        });
+        return;
+      }
+
+      const newPlatform = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: trimmedName,
+        vendor: trimmedVendor || "Proveedor no especificado",
+        scores: nextScores,
+        pros: [],
+        cons: [],
+        red_flags: [],
+        comments: [],
+      };
+
+      setDataset((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          platforms: [...(prev.platforms || []), newPlatform],
+        };
+        return next;
+      });
+
+      setManualFeedback({
+        type: "success",
+        message: "Plataforma agregada correctamente al análisis.",
+      });
+      setUploadFeedback(null);
+      setSelectedScenario("personalizado");
+
+      const resetScores = {};
+      features.forEach((feat) => {
+        resetScores[feat] = requirements[feat] ?? 80;
+      });
+
+      setManualPlatform({
+        name: "",
+        vendor: "",
+        scores: resetScores,
+      });
+    },
+    [dataset, features, manualPlatform, requirements]
+  );
+
+  const handleResetDataset = useCallback(() => {
+    if (!baseDataset) return;
+    setDataset(cloneDataset(baseDataset));
+    setUploadFeedback({
+      type: "success",
+      message: "Se restauró el dataset base original.",
+    });
+    setManualFeedback(null);
+    setSelectedScenario("mineria_247");
+    initialRequirementsRef.current = false;
+    setRequirements({});
+    setManualPlatform({
+      name: "",
+      vendor: "",
+      scores: {},
+    });
+  }, [baseDataset]);
 
   const results = useMemo(() => {
     if (!dataset) return [];
@@ -246,6 +696,117 @@ export default function NeuralComparator() {
                 </div>
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="card p-6 space-y-6">
+          <div className="flex flex-col lg:flex-row lg:justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-lg">Trae tus datos SCADA</h3>
+              <p className="text-sm text-slate-600">
+                Sube un archivo JSON o CSV con plataformas adicionales (columnas numéricas entre 0 y 100). También puedes
+                registrar rápidamente una plataforma manual con los campos siguientes.
+              </p>
+            </div>
+            <div className="text-xs text-slate-500">
+              Los archivos JSON aceptan la estructura <code>{"{ \"platforms\": [] }"}</code> con los mismos campos del dataset
+              base.
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Carga de archivo
+              </label>
+              <input
+                type="file"
+                accept=".json,.csv"
+                onChange={handleDatasetUpload}
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-full file:border-0 file:bg-slate-900 file:text-white hover:file:bg-slate-800"
+              />
+              {uploadFeedback ? (
+                <div
+                  className={`text-xs px-3 py-2 rounded-lg ${
+                    uploadFeedback.type === "error"
+                      ? "bg-red-50 text-red-600 border border-red-200"
+                      : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  }`}
+                >
+                  {uploadFeedback.message}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Se fusionarán las plataformas con el dataset actual respetando las existentes.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleResetDataset}
+                disabled={!baseDataset}
+                className="btn"
+              >
+                Restaurar dataset original
+              </button>
+            </div>
+            <form onSubmit={handleManualSubmit} className="lg:col-span-2 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Nombre de la plataforma</label>
+                  <input
+                    type="text"
+                    value={manualPlatform.name}
+                    onChange={(e) => handleManualFieldChange("name", e.target.value)}
+                    placeholder="Ej. SCADA personalizado"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Proveedor / Área</label>
+                  <input
+                    type="text"
+                    value={manualPlatform.vendor}
+                    onChange={(e) => handleManualFieldChange("vendor", e.target.value)}
+                    placeholder="Nombre del proveedor"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {features.map((feat) => (
+                  <div key={feat} className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">{feat}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={manualPlatform.scores?.[feat] ?? ""}
+                      onChange={(e) => handleManualScoreChange(feat, e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                  </div>
+                ))}
+              </div>
+              {manualFeedback && (
+                <div
+                  className={`text-xs px-3 py-2 rounded-lg ${
+                    manualFeedback.type === "error"
+                      ? "bg-red-50 text-red-600 border border-red-200"
+                      : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  }`}
+                >
+                  {manualFeedback.message}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="submit" className="btn primary">
+                  Agregar plataforma manual
+                </button>
+                <p className="text-xs text-slate-500">
+                  Los valores ingresados se compararán en tiempo real con los umbrales configurados.
+                </p>
+              </div>
+            </form>
           </div>
         </section>
 
