@@ -16,6 +16,7 @@ export default function Navbar() {
           <NavLink to="/graficos" className={({isActive})=>`${link} ${isActive?active:""}`}>Gráficos</NavLink>
           <NavLink to="/radar" className={({isActive})=>`${link} ${isActive?active:""}`}>Radar detallado</NavLink>
           <NavLink to="/dashboards" className={({isActive})=>`${link} ${isActive?active:""}`}>Dashboards</NavLink>
+          <NavLink to="/neural" className={({isActive})=>`${link} ${isActive?active:""}`}>Laboratorio neural</NavLink>
           <NavLink to="/ranking" className={({isActive})=>`${link} ${isActive?active:""}`}>Ranking</NavLink>
         </nav>
       </div>
