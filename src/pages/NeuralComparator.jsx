@@ -310,6 +310,15 @@ export default function NeuralComparator() {
     vendor: "",
     scores: {},
   });
+  const [chatMessages, setChatMessages] = useState(() => [
+    {
+      role: "assistant",
+      text:
+        "Hola, soy tu asistente SCADA. Pregunta por la mejor plataforma, brechas por atributo o cómo cargar tus datos y te orientaré.",
+    },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const chatContainerRef = useRef(null);
   const initialRequirementsRef = useRef(false);
 
   useEffect(() => {
@@ -659,6 +668,105 @@ export default function NeuralComparator() {
     }));
   };
 
+  const answerQuestion = useCallback(
+    (question) => {
+      const text = question.toLowerCase();
+      const currentPlatforms = dataset?.platforms?.length ?? 0;
+
+      if (!results.length) {
+        return "Aún no he calculado resultados. Ajusta los umbrales o carga un dataset para que pueda analizarlo.";
+      }
+
+      if (text.includes("dataset") || text.includes("cargar") || text.includes("subir")) {
+        return "Puedes subir archivos JSON o CSV en la sección 'Trae tus datos SCADA'. El asistente integrará los registros con el dataset activo y ajustará los umbrales automáticamente.";
+      }
+
+      if (text.includes("manual")) {
+        return "Completa el formulario de 'Agregar plataforma manual' y presiona el botón correspondiente. La nueva plataforma aparecerá en los resultados inmediatamente.";
+      }
+
+      if (text.includes("recom") || text.includes("mejor") || text.includes("top")) {
+        if (top) {
+          return `Actualmente ${top.name} de ${top.vendor} lidera la afinidad con ${formatPct(top.score)} y confianza ${formatPct(
+            top.confidence,
+            0
+          )}. Ajusta los umbrales para ver cómo cambian las recomendaciones.`;
+        }
+        return "Necesito al menos una plataforma evaluada para recomendar.";
+      }
+
+      if (text.includes("confianza")) {
+        const confidences = results
+          .slice(0, 3)
+          .map((item) => `${item.name} (${formatPct(item.confidence)})`)
+          .join(", ");
+        return `La confianza refleja brechas negativas detectadas. Los tres primeros actualmente son: ${confidences}.`;
+      }
+
+      const matchedFeature = features.find((feat) => text.includes(feat.toLowerCase()));
+      if (matchedFeature) {
+        const ranking = results
+          .map((item) => {
+            const coverage = item.coverage.find(
+              (cov) => cov.feature.toLowerCase() === matchedFeature.toLowerCase()
+            );
+            if (!coverage) return null;
+            return {
+              item,
+              coverage,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.coverage.score - a.coverage.score);
+
+        if (ranking.length) {
+          const best = ranking[0];
+          const requirement = requirements[matchedFeature] ?? 0;
+          const status =
+            best.coverage.gap >= 0
+              ? `supera el umbral por ${Math.abs(Math.round(best.coverage.gap))} puntos`
+              : `queda corto por ${Math.abs(Math.round(best.coverage.gap))} puntos`;
+          return `${best.item.name} destaca en ${matchedFeature} con ${Math.round(
+            best.coverage.score
+          )} vs. el mínimo de ${Math.round(requirement)}; ${status}.`;
+        }
+      }
+
+      if (text.includes("brecha") || text.includes("gap")) {
+        const focus = top?.improvements?.slice(0, 3) ?? [];
+        if (focus.length) {
+          return `${top.name} necesita reforzar ${focus.join(", ")} para cerrar las brechas más visibles.`;
+        }
+        return "Ninguna brecha crítica destaca con los umbrales actuales. Puedes elevarlos para forzar un análisis más estricto.";
+      }
+
+      return `Actualmente analizo ${currentPlatforms} plataformas. Pregunta por un atributo específico (ej. ciberseguridad, redundancia) o por las recomendaciones para guiarte.`;
+    },
+    [dataset?.platforms?.length, features, requirements, results, top]
+  );
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  const handleChatSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      const question = chatInput.trim();
+      if (!question) return;
+      const reply = answerQuestion(question);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "user", text: question },
+        { role: "assistant", text: reply },
+      ]);
+      setChatInput("");
+    },
+    [answerQuestion, chatInput]
+  );
+
   if (!dataset) {
     return <div className="p-6">Cargando modelo inteligente…</div>;
   }
@@ -941,6 +1049,54 @@ export default function NeuralComparator() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="card p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-lg">Asistente SCADA</h3>
+              <p className="text-sm text-slate-600">
+                Consulta sobre plataformas recomendadas, brechas por atributo o cómo cargar nuevos datos. El asistente usa el
+                análisis actual para responder.
+              </p>
+            </div>
+            <span className="text-[11px] uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded-full">
+              Beta
+            </span>
+          </div>
+          <div
+            ref={chatContainerRef}
+            className="border border-slate-200 rounded-xl bg-white h-72 overflow-y-auto p-4 space-y-3"
+          >
+            {chatMessages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                    message.role === "user"
+                      ? "bg-slate-900 text-white rounded-br-sm"
+                      : "bg-slate-100 text-slate-700 rounded-bl-sm"
+                  }`}
+                >
+                  {message.text}
+                </div>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleChatSubmit} className="flex gap-3">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              placeholder="Pregúntame sobre ciberseguridad, brechas o recomendaciones…"
+              className="flex-1 border border-slate-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+            />
+            <button type="submit" className="btn primary whitespace-nowrap">
+              Enviar
+            </button>
+          </form>
         </section>
 
         <section className="card p-6 space-y-4">
