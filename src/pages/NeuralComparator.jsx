@@ -174,6 +174,281 @@ const normalizeUpload = (raw, idFactory) => {
   };
 };
 
+const DEFAULT_FEATURE_HINTS = [
+  "Ciberseguridad",
+  "Redundancia",
+  "Protocolos",
+  "Compatibilidad con hardware",
+  "Disponibilidad",
+  "Escalabilidad",
+  "Integración OT/IT",
+  "Monitoreo en tiempo real",
+];
+
+let pdfjsLoaderPromise = null;
+
+const ensurePdfjs = async () => {
+  if (typeof window === "undefined") {
+    throw new Error("La extracción de PDF solo está disponible en el navegador.");
+  }
+
+  if (window.pdfjsLib) {
+    return window.pdfjsLib;
+  }
+
+  if (!pdfjsLoaderPromise) {
+    pdfjsLoaderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js";
+      script.async = true;
+      script.onload = () => {
+        if (window.pdfjsLib?.GlobalWorkerOptions) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js";
+        }
+        resolve(window.pdfjsLib);
+      };
+      script.onerror = () => {
+        reject(new Error("No se pudo cargar PDF.js desde la CDN pública."));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return pdfjsLoaderPromise;
+};
+
+const readFileAsText = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo seleccionado."));
+    reader.onload = () => resolve(reader.result || "");
+    reader.readAsText(file);
+  });
+
+const readFileAsArrayBuffer = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo seleccionado."));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsArrayBuffer(file);
+  });
+
+const extractTextFromPdf = async (arrayBuffer) => {
+  const pdfjsLib = await ensurePdfjs();
+  const typedArray =
+    arrayBuffer instanceof ArrayBuffer ? new Uint8Array(arrayBuffer) : new Uint8Array(arrayBuffer.buffer);
+  const task = pdfjsLib.getDocument({ data: typedArray });
+  const pdf = await task.promise;
+
+  let text = "";
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const page = await pdf.getPage(pageNumber);
+    // eslint-disable-next-line no-await-in-loop
+    const content = await page.getTextContent();
+    const pageText = content.items.map((item) => item.str).join(" ");
+    text += `\n${pageText}`;
+  }
+
+  return text;
+};
+
+const parsePlatformsFromText = (text, features) => {
+  const catalog = (features && features.length ? features : DEFAULT_FEATURE_HINTS).map((feat) => ({
+    name: feat,
+    tokens: feat.toLowerCase().split(/[^a-záéíóúüñ0-9]+/i).filter(Boolean),
+  }));
+
+  const lines = text
+    .split(/\r?\n|\s{2,}/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const results = [];
+  let current = null;
+  let currentList = null;
+
+  const flushCurrent = () => {
+    if (!current) return;
+    const scoreCount = Object.keys(current.scores || {}).length;
+    if (scoreCount || current.vendor) {
+      if (!current.name) {
+        current.name = `Plataforma ${results.length + 1}`;
+      }
+      results.push(current);
+    }
+    current = null;
+    currentList = null;
+  };
+
+  const startPlatform = (nameHint) => {
+    flushCurrent();
+    current = {
+      name: nameHint?.trim() || "",
+      vendor: "",
+      scores: {},
+      pros: [],
+      cons: [],
+      red_flags: [],
+      comments: [],
+    };
+    currentList = null;
+  };
+
+  const ensureCurrent = () => {
+    if (!current) {
+      startPlatform(`Plataforma ${results.length + 1}`);
+    }
+    return current;
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+
+    const platformMatch = line.match(/(?:plataforma|platforma|platform|nombre)\s*[:：-]\s*(.+)/i);
+    if (platformMatch) {
+      startPlatform(platformMatch[1]);
+      return;
+    }
+
+    if (/^(plataforma|platform)\b/i.test(line) && !line.includes(":")) {
+      const inferred = line.replace(/^(plataforma|platform)\b\s*/i, "");
+      startPlatform(inferred);
+      return;
+    }
+
+    const vendorMatch = line.match(/(?:proveedor|vendor)\s*[:：-]\s*(.+)/i);
+    if (vendorMatch) {
+      const entry = ensureCurrent();
+      entry.vendor = vendorMatch[1].trim();
+      return;
+    }
+
+    if (/ventajas|fortalezas|beneficios|pros?/i.test(line)) {
+      ensureCurrent();
+      currentList = "pros";
+      return;
+    }
+
+    if (/desventajas|contras|limitaciones|riesgos/i.test(line)) {
+      ensureCurrent();
+      currentList = "cons";
+      return;
+    }
+
+    if (/alertas|banderas|red\s*flags?/i.test(line)) {
+      ensureCurrent();
+      currentList = "red_flags";
+      return;
+    }
+
+    if (/comentarios|notas|observaciones/i.test(line)) {
+      ensureCurrent();
+      currentList = "comments";
+      return;
+    }
+
+    if (currentList && /^[•·\-*‒–—]/.test(line)) {
+      const entry = ensureCurrent();
+      const cleaned = line.replace(/^[•·\-*‒–—\s]+/, "").trim();
+      if (cleaned) {
+        entry[currentList] = Array.isArray(entry[currentList]) ? entry[currentList] : [];
+        entry[currentList].push(cleaned);
+      }
+      return;
+    }
+
+    const numericMatch = line.match(/([A-Za-zÁÉÍÓÚÜÑ0-9\s\/\-]{3,})\s*[:：-]\s*(\d{1,3})(?:\s*\/\s*100)?/);
+    if (numericMatch) {
+      const label = numericMatch[1].trim();
+      const rawValue = Number(numericMatch[2]);
+      if (Number.isFinite(rawValue)) {
+        const lower = label.toLowerCase();
+        const target = catalog.find((feat) => feat.tokens.every((token) => lower.includes(token)));
+        if (target) {
+          const entry = ensureCurrent();
+          entry.scores[target.name] = clampScore(rawValue);
+          return;
+        }
+      }
+    }
+
+    if (currentList) {
+      const entry = ensureCurrent();
+      entry.comments = Array.isArray(entry.comments) ? entry.comments : [];
+      entry.comments.push(line);
+      currentList = null;
+      return;
+    }
+  });
+
+  flushCurrent();
+  return results;
+};
+
+const extractPlatformsFromPdf = async (arrayBuffer, features) => {
+  const text = await extractTextFromPdf(arrayBuffer);
+  return parsePlatformsFromText(text, features);
+};
+
+const fetchExternalScadaInsight = async (query) => {
+  if (typeof fetch !== "function") {
+    return { success: false };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6500);
+
+  try {
+    const response = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1`,
+      { signal: controller.signal }
+    );
+
+    if (!response.ok) {
+      return { success: false };
+    }
+
+    const data = await response.json();
+    const extractFromTopics = (topics) => {
+      if (!Array.isArray(topics)) return null;
+      for (const topic of topics) {
+        if (topic.Text) {
+          return { summary: topic.Text, url: topic.FirstURL || "" };
+        }
+        if (Array.isArray(topic.Topics)) {
+          const nested = extractFromTopics(topic.Topics);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    };
+
+    const summary = data.AbstractText || data.Abstract || "";
+    if (summary) {
+      return {
+        success: true,
+        summary,
+        url: data.AbstractURL || data.AbstractSource || data.RelatedTopics?.[0]?.FirstURL || "",
+      };
+    }
+
+    const related = extractFromTopics(data.RelatedTopics);
+    if (related) {
+      return { success: true, ...related };
+    }
+
+    return { success: false };
+  } catch (error) {
+    console.warn("No se pudo obtener información externa", error);
+    return { success: false, error: error.message };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const mergeDataset = (current, incoming, idFactory) => {
   if (!current) {
     const dataset = {
@@ -314,10 +589,11 @@ export default function NeuralComparator() {
     {
       role: "assistant",
       text:
-        "Hola, soy tu asistente SCADA. Pregunta por la mejor plataforma, brechas por atributo o cómo cargar tus datos y te orientaré.",
+        "Hola, soy tu asistente SCADA conectado. Puedo analizar las brechas actuales, interpretar PDFs técnicos que subas y consultar fuentes públicas en internet para darte más contexto. ¿En qué te ayudo?",
     },
   ]);
   const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
   const chatContainerRef = useRef(null);
   const initialRequirementsRef = useRef(false);
 
@@ -442,61 +718,73 @@ export default function NeuralComparator() {
   }, []);
 
   const handleDatasetUpload = useCallback(
-    (event) => {
+    async (event) => {
       const input = event.target;
       const file = input.files?.[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      const extension = file.name.split(".").pop()?.toLowerCase();
+      const extension = file.name.split(".").pop()?.toLowerCase() || "";
       const idFactory = createIdFactory();
+      const featureHints = features && features.length ? features : DEFAULT_FEATURE_HINTS;
 
-      reader.onload = () => {
-        try {
-          const text = reader.result;
-          let parsed;
+      try {
+        setUploadFeedback({ type: "info", message: `Analizando ${file.name}…` });
 
-          if (extension === "json") {
-            parsed = JSON.parse(text);
-          } else if (extension === "csv") {
-            parsed = parseCsv(text);
-          } else {
-            throw new Error("Formato no soportado. Sube un archivo JSON o CSV.");
-          }
+        let normalized;
+        let sourceLabel = extension.toUpperCase();
 
-          const normalized = normalizeUpload(parsed, idFactory);
-          if (!normalized.platforms.length) {
-            throw new Error("El archivo no contiene plataformas válidas.");
-          }
-
-          setDataset((prev) => {
-            const { dataset: merged, added, replaced } = mergeDataset(
-              prev,
-              normalized,
-              idFactory
-            );
-            setUploadFeedback({
-              type: "success",
-              message: `Se integraron ${added} plataformas nuevas y se actualizaron ${replaced}.`,
-            });
-            setManualFeedback(null);
-            setSelectedScenario("personalizado");
-            return merged;
-          });
-        } catch (error) {
-          console.error("Error al procesar el archivo SCADA", error);
-          setUploadFeedback({
-            type: "error",
-            message: error.message || "No se pudo interpretar el archivo proporcionado.",
-          });
-        } finally {
-          input.value = "";
+        if (extension === "json" || file.type === "application/json") {
+          const text = await readFileAsText(file);
+          const parsed = JSON.parse(text);
+          normalized = normalizeUpload(parsed, idFactory);
+          sourceLabel = "JSON";
+        } else if (extension === "csv" || file.type === "text/csv") {
+          const text = await readFileAsText(file);
+          const parsed = parseCsv(text);
+          normalized = normalizeUpload(parsed, idFactory);
+          sourceLabel = "CSV";
+        } else if (extension === "pdf" || file.type === "application/pdf") {
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          const extracted = await extractPlatformsFromPdf(arrayBuffer, featureHints);
+          normalized = { platforms: extracted, weights: {} };
+          sourceLabel = "PDF";
+        } else {
+          throw new Error("Formato no soportado. Sube un archivo JSON, CSV o PDF.");
         }
-      };
 
-      reader.readAsText(file);
+        const candidateCount = normalized.platforms.length;
+        if (!candidateCount) {
+          throw new Error("El archivo no contiene plataformas válidas.");
+        }
+
+        const attributeCount = normalized.platforms.reduce(
+          (acc, platform) => acc + Object.keys(platform.scores || {}).length,
+          0
+        );
+
+        setDataset((prev) => {
+          const { dataset: merged, added, replaced } = mergeDataset(prev, normalized, idFactory);
+          setUploadFeedback({
+            type: "success",
+            message: `${sourceLabel} procesado (${candidateCount} plataformas, ${attributeCount} atributos). Se integraron ${added} y se actualizaron ${replaced}.`,
+          });
+          setManualFeedback(null);
+          setSelectedScenario("personalizado");
+          return merged;
+        });
+      } catch (error) {
+        console.error("Error al procesar el archivo SCADA", error);
+        setUploadFeedback({
+          type: "error",
+          message:
+            error.message ||
+            "No se pudo interpretar el archivo proporcionado. Intenta con JSON, CSV o PDF estructurado.",
+        });
+      } finally {
+        input.value = "";
+      }
     },
-    [createIdFactory]
+    [createIdFactory, features]
   );
 
   const handleManualFieldChange = useCallback((field, value) => {
@@ -669,78 +957,123 @@ export default function NeuralComparator() {
   };
 
   const answerQuestion = useCallback(
-    (question) => {
+    async (question) => {
       const text = question.toLowerCase();
       const currentPlatforms = dataset?.platforms?.length ?? 0;
+      const hasResults = results.length > 0;
+      const isPdfQuestion = text.includes("pdf");
+      const triggeredSearch = /internet|externa|actualiz|tendenc|mercado|notici|normativ|investigaci|panorama|benchmark/.test(
+        text
+      );
 
-      if (!results.length) {
-        return "Aún no he calculado resultados. Ajusta los umbrales o carga un dataset para que pueda analizarlo.";
-      }
+      let baseAnswer = "";
+      let shouldSearch = triggeredSearch;
 
-      if (text.includes("dataset") || text.includes("cargar") || text.includes("subir")) {
-        return "Puedes subir archivos JSON o CSV en la sección 'Trae tus datos SCADA'. El asistente integrará los registros con el dataset activo y ajustará los umbrales automáticamente.";
-      }
-
-      if (text.includes("manual")) {
-        return "Completa el formulario de 'Agregar plataforma manual' y presiona el botón correspondiente. La nueva plataforma aparecerá en los resultados inmediatamente.";
-      }
-
-      if (text.includes("recom") || text.includes("mejor") || text.includes("top")) {
+      if (isPdfQuestion) {
+        baseAnswer =
+          "Sí. Usa la sección ‘Trae tus datos SCADA’, selecciona tu PDF y extraeré valores numéricos asociados a atributos como ciberseguridad o redundancia para crear nuevas plataformas. También etiqueto ventajas, riesgos y comentarios presentes en el documento.";
+      } else if (text.includes("dataset") || text.includes("cargar") || text.includes("subir")) {
+        baseAnswer =
+          "Puedes subir archivos JSON, CSV o PDF desde la sección ‘Trae tus datos SCADA’. Normalizaré los registros y los fusionaré con el dataset activo sin perder tus datos actuales.";
+      } else if (text.includes("manual")) {
+        baseAnswer =
+          "Completa el formulario de ‘Agregar plataforma manual’ con nombre, proveedor y calificaciones (0 a 100) y presiona el botón. Se agregará al ranking inmediatamente.";
+      } else if (!hasResults) {
+        baseAnswer =
+          "Aún no he calculado resultados. Ajusta los umbrales o carga un dataset para que pueda analizarlo. Si necesitas contexto general, también puedo buscar referencias públicas.";
+        shouldSearch = true;
+      } else if (text.includes("recom") || text.includes("mejor") || text.includes("top")) {
         if (top) {
-          return `Actualmente ${top.name} de ${top.vendor} lidera la afinidad con ${formatPct(top.score)} y confianza ${formatPct(
-            top.confidence,
-            0
-          )}. Ajusta los umbrales para ver cómo cambian las recomendaciones.`;
+          baseAnswer = `Actualmente ${top.name} de ${top.vendor} lidera la afinidad con ${formatPct(
+            top.score
+          )} y confianza ${formatPct(top.confidence, 0)}. Ajusta los umbrales para ver cómo cambian las recomendaciones.`;
+        } else {
+          baseAnswer = "Necesito al menos una plataforma evaluada para recomendar.";
         }
-        return "Necesito al menos una plataforma evaluada para recomendar.";
-      }
-
-      if (text.includes("confianza")) {
+      } else if (text.includes("confianza")) {
         const confidences = results
           .slice(0, 3)
           .map((item) => `${item.name} (${formatPct(item.confidence)})`)
           .join(", ");
-        return `La confianza refleja brechas negativas detectadas. Los tres primeros actualmente son: ${confidences}.`;
-      }
+        baseAnswer = `La confianza penaliza brechas severas. Los tres primeros actualmente son: ${confidences}.`;
+      } else {
+        const matchedFeature = features.find((feat) => text.includes(feat.toLowerCase()));
+        if (matchedFeature) {
+          const ranking = results
+            .map((item) => {
+              const coverage = item.coverage.find(
+                (cov) => cov.feature.toLowerCase() === matchedFeature.toLowerCase()
+              );
+              if (!coverage) return null;
+              return { item, coverage };
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.coverage.score - a.coverage.score);
 
-      const matchedFeature = features.find((feat) => text.includes(feat.toLowerCase()));
-      if (matchedFeature) {
-        const ranking = results
-          .map((item) => {
-            const coverage = item.coverage.find(
-              (cov) => cov.feature.toLowerCase() === matchedFeature.toLowerCase()
-            );
-            if (!coverage) return null;
-            return {
-              item,
-              coverage,
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.coverage.score - a.coverage.score);
+          if (ranking.length) {
+            const best = ranking[0];
+            const requirement = requirements[matchedFeature] ?? 0;
+            const status =
+              best.coverage.gap >= 0
+                ? `supera el umbral por ${Math.abs(Math.round(best.coverage.gap))} puntos`
+                : `queda corto por ${Math.abs(Math.round(best.coverage.gap))} puntos`;
+            baseAnswer = `${best.item.name} destaca en ${matchedFeature} con ${Math.round(
+              best.coverage.score
+            )} frente al mínimo de ${Math.round(requirement)}; ${status}.`;
+          }
+        }
 
-        if (ranking.length) {
-          const best = ranking[0];
-          const requirement = requirements[matchedFeature] ?? 0;
-          const status =
-            best.coverage.gap >= 0
-              ? `supera el umbral por ${Math.abs(Math.round(best.coverage.gap))} puntos`
-              : `queda corto por ${Math.abs(Math.round(best.coverage.gap))} puntos`;
-          return `${best.item.name} destaca en ${matchedFeature} con ${Math.round(
-            best.coverage.score
-          )} vs. el mínimo de ${Math.round(requirement)}; ${status}.`;
+        if (!baseAnswer && (text.includes("brecha") || text.includes("gap"))) {
+          const focus = top?.improvements?.slice(0, 3) ?? [];
+          baseAnswer = focus.length
+            ? `${top.name} necesita reforzar ${focus.join(", ")} para cerrar las brechas más visibles.`
+            : "Ninguna brecha crítica destaca con los umbrales actuales. Puedes elevarlos para forzar un análisis más estricto.";
         }
       }
 
-      if (text.includes("brecha") || text.includes("gap")) {
-        const focus = top?.improvements?.slice(0, 3) ?? [];
-        if (focus.length) {
-          return `${top.name} necesita reforzar ${focus.join(", ")} para cerrar las brechas más visibles.`;
-        }
-        return "Ninguna brecha crítica destaca con los umbrales actuales. Puedes elevarlos para forzar un análisis más estricto.";
+      if (!baseAnswer && hasResults) {
+        const requirementFocus = Object.entries(requirements || {})
+          .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+          .slice(0, 3)
+          .map(([feat, value]) => `${feat} (${Math.round(value)})`);
+        const strengths = top?.strengths?.slice(0, 3) ?? [];
+        baseAnswer = `Actualmente analizo ${currentPlatforms} plataformas. ${
+          requirementFocus.length
+            ? `Tus umbrales más exigentes son ${requirementFocus.join(", ")}.`
+            : "Tus umbrales siguen moderados."
+        } ${
+          strengths.length ? `El líder (${top.name}) destaca en ${strengths.join(", ")}.` : ""
+        } Pregúntame por un atributo específico o por nuevas fuentes para ampliar el análisis.`.trim();
+      } else if (!baseAnswer) {
+        baseAnswer = `Actualmente analizo ${currentPlatforms} plataformas. Pregunta por un atributo específico (ciberseguridad, redundancia) o por las recomendaciones para guiarte.`;
       }
 
-      return `Actualmente analizo ${currentPlatforms} plataformas. Pregunta por un atributo específico (ej. ciberseguridad, redundancia) o por las recomendaciones para guiarte.`;
+      if (!triggeredSearch && (text.includes("dataset") || text.includes("manual") || isPdfQuestion)) {
+        shouldSearch = false;
+      }
+
+      if (!shouldSearch && (!hasResults || baseAnswer.startsWith("Actualmente analizo"))) {
+        shouldSearch = true;
+      }
+
+      let searchAppendix = "";
+      if (shouldSearch) {
+        const query = /scada/i.test(question) ? question : `${question} sistemas SCADA`;
+        const searchResult = await fetchExternalScadaInsight(query);
+        if (searchResult.success && searchResult.summary) {
+          searchAppendix = `🔎 Búsqueda externa: ${searchResult.summary}${
+            searchResult.url ? ` (${searchResult.url})` : ""
+          }`;
+        } else if (triggeredSearch || !hasResults) {
+          searchAppendix = "🔌 Intenté consultar fuentes abiertas pero no obtuve respuesta en este momento.";
+        }
+      }
+
+      if (searchAppendix) {
+        return baseAnswer ? `${baseAnswer}\n\n${searchAppendix}` : searchAppendix;
+      }
+
+      return baseAnswer;
     },
     [dataset?.platforms?.length, features, requirements, results, top]
   );
@@ -749,22 +1082,36 @@ export default function NeuralComparator() {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatMessages]);
+  }, [chatMessages, chatLoading]);
 
   const handleChatSubmit = useCallback(
-    (event) => {
+    async (event) => {
       event.preventDefault();
       const question = chatInput.trim();
-      if (!question) return;
-      const reply = answerQuestion(question);
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "user", text: question },
-        { role: "assistant", text: reply },
-      ]);
+      if (!question || chatLoading) return;
+
+      setChatLoading(true);
+      setChatMessages((prev) => [...prev, { role: "user", text: question }]);
       setChatInput("");
+
+      try {
+        const reply = await answerQuestion(question);
+        setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      } catch (error) {
+        console.error("Error en el asistente SCADA", error);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text:
+              "Ocurrió un inconveniente al consultar la información externa. Intenta nuevamente o reformula tu pregunta para que pueda ayudarte.",
+          },
+        ]);
+      } finally {
+        setChatLoading(false);
+      }
     },
-    [answerQuestion, chatInput]
+    [answerQuestion, chatInput, chatLoading]
   );
 
   if (!dataset) {
@@ -812,13 +1159,13 @@ export default function NeuralComparator() {
             <div>
               <h3 className="font-semibold text-lg">Trae tus datos SCADA</h3>
               <p className="text-sm text-slate-600">
-                Sube un archivo JSON o CSV con plataformas adicionales (columnas numéricas entre 0 y 100). También puedes
-                registrar rápidamente una plataforma manual con los campos siguientes.
+                Sube un archivo JSON, CSV o PDF con plataformas adicionales (columnas o valores numéricos entre 0 y 100).
+                También puedes registrar rápidamente una plataforma manual con los campos siguientes.
               </p>
             </div>
             <div className="text-xs text-slate-500">
-              Los archivos JSON aceptan la estructura <code>{"{ \"platforms\": [] }"}</code> con los mismos campos del dataset
-              base.
+              Los archivos JSON aceptan la estructura <code>{"{ \"platforms\": [] }"}</code>. Al subir PDFs se descargará
+              dinámicamente PDF.js desde la CDN pública para extraer texto y puntuaciones.
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -828,7 +1175,7 @@ export default function NeuralComparator() {
               </label>
               <input
                 type="file"
-                accept=".json,.csv"
+                accept=".json,.csv,.pdf"
                 onChange={handleDatasetUpload}
                 className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-full file:border-0 file:bg-slate-900 file:text-white hover:file:bg-slate-800"
               />
@@ -837,6 +1184,8 @@ export default function NeuralComparator() {
                   className={`text-xs px-3 py-2 rounded-lg ${
                     uploadFeedback.type === "error"
                       ? "bg-red-50 text-red-600 border border-red-200"
+                      : uploadFeedback.type === "info"
+                      ? "bg-sky-50 text-sky-600 border border-sky-200"
                       : "bg-emerald-50 text-emerald-600 border border-emerald-200"
                   }`}
                 >
@@ -844,7 +1193,8 @@ export default function NeuralComparator() {
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  Se fusionarán las plataformas con el dataset actual respetando las existentes.
+                  Se fusionarán las plataformas con el dataset actual respetando las existentes. Las puntuaciones extraídas de
+                  PDFs se asociarán automáticamente a los atributos detectados.
                 </p>
               )}
               <button
@@ -1056,12 +1406,12 @@ export default function NeuralComparator() {
             <div>
               <h3 className="font-semibold text-lg">Asistente SCADA</h3>
               <p className="text-sm text-slate-600">
-                Consulta sobre plataformas recomendadas, brechas por atributo o cómo cargar nuevos datos. El asistente usa el
-                análisis actual para responder.
+                Consulta sobre plataformas recomendadas, brechas por atributo o cómo cargar nuevos datos. El asistente combina
+                el análisis actual con búsquedas en línea y los datos que cargues (incluyendo PDFs) para responder.
               </p>
             </div>
             <span className="text-[11px] uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded-full">
-              Beta
+              Beta · Online
             </span>
           </div>
           <div
@@ -1084,16 +1434,27 @@ export default function NeuralComparator() {
                 </div>
               </div>
             ))}
+            {chatLoading ? (
+              <div className="flex justify-start">
+                <div className="max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm bg-slate-100 text-slate-600 rounded-bl-sm animate-pulse">
+                  Buscando información y verificando fuentes…
+                </div>
+              </div>
+            ) : null}
           </div>
           <form onSubmit={handleChatSubmit} className="flex gap-3">
             <input
               type="text"
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
-              placeholder="Pregúntame sobre ciberseguridad, brechas o recomendaciones…"
+              placeholder="Pregúntame sobre ciberseguridad, brechas, PDF o solicita que busque en internet…"
               className="flex-1 border border-slate-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-            />
-            <button type="submit" className="btn primary whitespace-nowrap">
+              />
+            <button
+              type="submit"
+              className="btn primary whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={chatLoading}
+            >
               Enviar
             </button>
           </form>
