@@ -7,6 +7,7 @@ import Charts from "./pages/Charts.jsx";
 import RadarDetail from "./pages/RadarDetail.jsx";
 import Dashboards from "./pages/Dashboards.jsx";
 import Ranking from "./pages/Ranking.jsx";
+import NeuralComparator from "./pages/NeuralComparator.jsx";
 
 function Root() {
   return (
@@ -16,6 +17,7 @@ function Root() {
         <Route path="/graficos" element={<Charts />} />
         <Route path="/radar" element={<RadarDetail />} />
         <Route path="/dashboards" element={<Dashboards />} />
+        <Route path="/neural" element={<NeuralComparator />} />
         <Route path="/ranking" element={<Ranking />} />
       </Routes>
     </BrowserRouter>
